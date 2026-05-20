@@ -1,0 +1,16 @@
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+app/build/
+app/libs/*.aar
+app/libs/*.jar
+!app/libs/README.md
+
+.idea/
+*.iml

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Emby 家庭服务器常见部署为局域网 HTTP。正式发布前应尽量切换为 HTTPS 或限定域名。 -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
