@@ -11,43 +11,43 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
+import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.PlaybackSource
 import com.embytv.ui.components.GlassPanel
 import com.embytv.ui.components.LibraryCard
 import com.embytv.ui.components.MediaPosterCard
 import com.embytv.ui.components.NavigationDrawerPanel
-import com.embytv.ui.components.PrimaryTvButton
 import com.embytv.ui.components.RemoteHint
 import com.embytv.ui.components.TopChromeBar
 import com.embytv.ui.setup.SetupScreen
 import com.embytv.ui.theme.CinematicGlassColors
 import com.embytv.ui.theme.CinematicGlassSpacing
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
     onPlay: (PlaybackSource) -> Unit,
-    onPlaySample: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     if (state.session == null) {
         SetupScreen(
@@ -59,15 +59,15 @@ fun HomeScreen(
             onUsernameChange = viewModel::updateUsername,
             onPasswordChange = viewModel::updatePassword,
             onConnect = viewModel::connect,
-            onPlaySample = onPlaySample,
         )
     } else {
         HomeDashboardScreen(
             state = state,
             onPlay = { item ->
-                viewModel.createPlaybackSource(item)?.let(onPlay)
+                coroutineScope.launch {
+                    viewModel.createPlaybackSource(item)?.let(onPlay)
+                }
             },
-            onPlaySample = onPlaySample,
         )
     }
 }
@@ -75,10 +75,16 @@ fun HomeScreen(
 @Composable
 private fun HomeDashboardScreen(
     state: HomeUiState,
-    onPlay: (com.embytv.domain.model.MediaItemSummary) -> Unit,
-    onPlaySample: () -> Unit,
+    onPlay: (MediaItemSummary) -> Unit,
 ) {
-    val dashboard = remember(state.items) { HomeDashboardMapper.map(state.items) }
+    val dashboard = remember(state.dashboard) { HomeDashboardMapper.map(state.dashboard) }
+    val mediaItems = remember(state.dashboard) {
+        if (state.dashboard.resumeItems.isNotEmpty()) {
+            state.dashboard.resumeItems
+        } else {
+            state.dashboard.latestItems
+        }.take(12)
+    }
     var drawerState by remember { mutableStateOf(DrawerUiState()) }
     var hintMessage by remember { mutableStateOf<String?>(null) }
     val menuFocusRequester = remember { FocusRequester() }
@@ -161,19 +167,14 @@ private fun HomeDashboardScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                SectionHeader(title = "Continue Watching")
-                PrimaryTvButton(
-                    text = "样例播放",
-                    icon = Icons.Filled.PlayArrow,
-                    onClick = onPlaySample,
-                )
+                SectionHeader(title = dashboard.mediaSectionTitle)
             }
-            if (state.items.isEmpty()) {
+            if (mediaItems.isEmpty()) {
                 EmptyDashboardPanel()
             } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap)) {
-                    items(state.items, key = { it.id }) { item ->
-                        val card = dashboard.continueWatching.first { it.id == item.id }
+                    items(mediaItems, key = { it.id }) { item ->
+                        val card = dashboard.continueWatching.firstOrNull { it.id == item.id } ?: return@items
                         MediaPosterCard(
                             card = card,
                             modifier = Modifier.fillParentMaxWidth(0.16f),
@@ -195,7 +196,7 @@ private fun HomeDashboardScreen(
             visible = drawerState.isOpen,
             onClose = { drawerState = drawerState.close() },
             onItemClick = { item ->
-                if (item.id == HomeNavigationId.Home) {
+                if (item.enabled) {
                     drawerState = drawerState.close()
                 }
             },
@@ -223,7 +224,7 @@ private fun EmptyDashboardPanel() {
         ) {
             Text(text = "尚未加载媒体", color = CinematicGlassColors.OnSurface, fontSize = 22.sp)
             Text(
-                text = "Emby 已连接，但当前接口没有返回可播放条目。你仍可使用样例播放验证播放器和弹幕层。",
+                text = "Emby 已连接，但当前接口没有返回继续观看或最近入库条目。",
                 color = CinematicGlassColors.OnSurfaceVariant,
                 fontSize = 16.sp,
             )
@@ -247,10 +248,10 @@ private fun MiniPlayerBar(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column {
-                Text("Select a title to begin", color = CinematicGlassColors.OnSurface, fontSize = 15.sp)
-                Text("No media playing", color = CinematicGlassColors.OnSurfaceVariant, fontSize = 12.sp)
+                Text("选择 Emby 媒体开始播放", color = CinematicGlassColors.OnSurface, fontSize = 15.sp)
+                Text("播放信息将在打开媒体时从服务器读取", color = CinematicGlassColors.OnSurfaceVariant, fontSize = 12.sp)
             }
-            Text("Direct Play Ready", color = CinematicGlassColors.Primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text("Emby 已连接", color = CinematicGlassColors.Primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

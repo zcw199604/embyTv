@@ -5,10 +5,14 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
+interface EmbyApiProvider {
+    fun create(baseUrl: String, accessToken: String? = null): EmbyApi
+}
+
 class EmbyApiFactory(
     private val okHttpClient: OkHttpClient,
-) {
-    fun create(baseUrl: String, accessToken: String? = null): EmbyApi {
+) : EmbyApiProvider {
+    override fun create(baseUrl: String, accessToken: String?): EmbyApi {
         val client = okHttpClient.newBuilder()
             .addInterceptor(NetworkModule.tokenQueryInterceptor(accessToken))
             .build()

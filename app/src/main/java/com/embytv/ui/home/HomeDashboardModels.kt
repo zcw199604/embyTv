@@ -1,17 +1,10 @@
 package com.embytv.ui.home
 
+import com.embytv.domain.model.EmbyHomeDashboard
 import com.embytv.domain.model.MediaItemSummary
 
-enum class HomeNavigationId {
-    Home,
-    Movies,
-    TvShows,
-    Collections,
-    Settings,
-}
-
 data class HomeNavigationItem(
-    val id: HomeNavigationId,
+    val id: String,
     val title: String,
     val enabled: Boolean,
     val disabledReason: String? = null,
@@ -39,6 +32,7 @@ data class HomeDashboardUiModel(
     val navigationItems: List<HomeNavigationItem>,
     val libraries: List<LibrarySummaryUiModel>,
     val continueWatching: List<MediaCardUiModel>,
+    val mediaSectionTitle: String,
 )
 
 data class DrawerUiState(
@@ -55,70 +49,57 @@ data class DrawerUiState(
 }
 
 object HomeDashboardMapper {
-    fun map(items: List<MediaItemSummary>): HomeDashboardUiModel {
-        val movies = items.filter { it.type.equals("Movie", ignoreCase = true) }
-        val shows = items.filter {
-            it.type.equals("Series", ignoreCase = true) ||
-                it.type.equals("Episode", ignoreCase = true)
+    fun map(dashboard: EmbyHomeDashboard): HomeDashboardUiModel {
+        val mediaItems = if (dashboard.resumeItems.isNotEmpty()) {
+            dashboard.resumeItems
+        } else {
+            dashboard.latestItems
         }
-
         return HomeDashboardUiModel(
-            navigationItems = listOf(
-                HomeNavigationItem(HomeNavigationId.Home, "Home", enabled = true),
-                HomeNavigationItem(HomeNavigationId.Movies, "Movies", enabled = false, disabledReason = "Movies 暂未支持"),
-                HomeNavigationItem(HomeNavigationId.TvShows, "TV Shows", enabled = false, disabledReason = "TV Shows 暂未支持"),
-                HomeNavigationItem(HomeNavigationId.Collections, "Collections", enabled = false, disabledReason = "Collections 暂未支持"),
-                HomeNavigationItem(HomeNavigationId.Settings, "Settings", enabled = false, disabledReason = "Settings 暂未支持"),
-            ),
-            libraries = listOf(
-                LibrarySummaryUiModel(
-                    id = "movies",
-                    title = "Movies",
-                    countLabel = movies.size.toItemCountLabel(),
-                    imageUrl = movies.firstOrNull()?.imageUrl,
+            navigationItems = dashboard.libraries.map { library ->
+                HomeNavigationItem(
+                    id = library.id,
+                    title = library.name.ifBlank { library.collectionType ?: "媒体库" },
                     enabled = false,
                     disabledReason = "媒体库详情暂未支持",
-                ),
+                )
+            },
+            libraries = dashboard.libraries.map { library ->
                 LibrarySummaryUiModel(
-                    id = "tv",
-                    title = "TV Shows",
-                    countLabel = shows.size.toSeriesCountLabel(),
-                    imageUrl = shows.firstOrNull()?.imageUrl,
-                    enabled = false,
+                    id = library.id,
+                    title = library.name.ifBlank { library.collectionType ?: library.type },
+                    countLabel = library.itemCount.toItemCountLabel(),
+                    imageUrl = library.imageUrl,
+                    enabled = true,
                     disabledReason = "媒体库详情暂未支持",
-                ),
-                LibrarySummaryUiModel(
-                    id = "anime",
-                    title = "Anime",
-                    countLabel = "0 items",
-                    imageUrl = null,
-                    enabled = false,
-                    disabledReason = "Anime 暂未支持",
-                ),
-            ),
-            continueWatching = items.take(12).mapIndexed { index, item ->
+                )
+            },
+            continueWatching = mediaItems.take(12).map { item ->
                 MediaCardUiModel(
                     id = item.id,
                     title = item.name.ifBlank { item.id },
-                    subtitle = item.overview?.takeIf { it.isNotBlank() } ?: item.type,
+                    subtitle = item.subtitle(),
                     imageUrl = item.imageUrl,
-                    progressFraction = seededProgress(index),
+                    progressFraction = item.progressFraction(),
                     badge = item.type.ifBlank { "Media" },
                 )
             },
+            mediaSectionTitle = if (dashboard.resumeItems.isNotEmpty()) "Continue Watching" else "最近入库",
         )
     }
 
     private fun Int.toItemCountLabel(): String = if (this == 1) "1 item" else "$this items"
 
-    private fun Int.toSeriesCountLabel(): String = if (this == 1) "1 series" else "$this series"
+    private fun MediaItemSummary.subtitle(): String =
+        seriesName?.takeIf { it.isNotBlank() }
+            ?: overview?.takeIf { it.isNotBlank() }
+            ?: productionYear?.toString()
+            ?: type
 
-    private fun seededProgress(index: Int): Float {
-        return when (index % 4) {
-            0 -> 0.72f
-            1 -> 0.38f
-            2 -> 0.18f
-            else -> 0.0f
-        }
+    private fun MediaItemSummary.progressFraction(): Float {
+        playedPercentage?.let { return (it / 100.0).toFloat().coerceIn(0f, 1f) }
+        val runtime = runTimeTicks ?: return 0f
+        if (runtime <= 0L) return 0f
+        return (playbackPositionTicks.toFloat() / runtime.toFloat()).coerceIn(0f, 1f)
     }
 }

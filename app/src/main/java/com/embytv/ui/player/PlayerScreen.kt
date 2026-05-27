@@ -225,6 +225,7 @@ fun PlayerScreen(
 
         PlayerOsdOverlay(
             title = playbackSource.title,
+            details = playbackSource.details,
             state = osdState,
             onBack = { dispatch(PlayerOsdAction.BackPressed) },
             onPlayPause = { dispatch(PlayerOsdAction.TogglePlayPause) },
@@ -248,6 +249,7 @@ fun PlayerScreen(
 @Composable
 private fun PlayerOsdOverlay(
     title: String,
+    details: com.embytv.domain.model.PlaybackDetails,
     state: PlayerOsdState,
     onBack: () -> Unit,
     onPlayPause: () -> Unit,
@@ -297,7 +299,7 @@ private fun PlayerOsdOverlay(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Direct Playing · HEVC · 4K HDR",
+                    text = details.playbackSummaryLabel,
                     color = CinematicGlassColors.OnSurfaceVariant,
                     fontSize = 14.sp,
                 )
@@ -315,7 +317,7 @@ private fun PlayerOsdOverlay(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Filled.Info, contentDescription = null, tint = CinematicGlassColors.Primary)
-                Text("2160p · HDR10", color = CinematicGlassColors.OnSurfaceVariant, fontSize = 14.sp)
+                Text(details.qualityLabel, color = CinematicGlassColors.OnSurfaceVariant, fontSize = 14.sp)
             }
         }
 
@@ -353,20 +355,20 @@ private fun PlayerOsdOverlay(
                 QuickSettingPill(
                     icon = Icons.AutoMirrored.Filled.VolumeUp,
                     label = "Audio",
-                    value = "暂未支持",
+                    value = details.audioLabel,
                     selected = state.selectedQuickPanel == PlayerQuickPanel.Audio,
                     enabled = false,
-                    disabledReason = "Audio 暂未支持",
+                    disabledReason = if (details.audioTracks.isEmpty()) "没有可用音轨信息" else "音轨切换暂未支持",
                     onClick = { onQuickPanel(PlayerQuickPanel.Audio) },
                     onUnsupported = onUnsupported,
                 )
                 QuickSettingPill(
                     icon = Icons.Filled.Subtitles,
                     label = "Subtitles",
-                    value = "暂未支持",
+                    value = details.subtitleLabel,
                     selected = state.selectedQuickPanel == PlayerQuickPanel.Subtitles,
                     enabled = false,
-                    disabledReason = "Subtitles 暂未支持",
+                    disabledReason = if (details.subtitleTracks.isEmpty()) "当前媒体没有字幕" else "字幕切换暂未支持",
                     onClick = { onQuickPanel(PlayerQuickPanel.Subtitles) },
                     onUnsupported = onUnsupported,
                 )

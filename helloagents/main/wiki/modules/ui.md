@@ -39,11 +39,11 @@ Emby 登录成功后：
 
 #### 场景: 首页连接
 用户输入 Emby 服务器配置和账号后：
-- 能触发认证与媒体列表加载。
+- 能触发认证与首页 Dashboard 聚合加载。
 - 加载失败时显示可读错误。
 
 #### 场景: 播放页
-用户选择媒体或样例后：
+用户选择媒体后：
 - Media3 播放器进入全屏。
 - AkDanmaku View 覆盖在播放器上方。
 - 返回键退出播放页。
@@ -60,13 +60,18 @@ Emby 登录成功后：
 
 #### 场景: 首页媒体中心
 认证成功后：
-- 首页展示顶部栏、媒体库卡片、继续观看横向媒体行和迷你播放条。
+- 首页展示顶部栏、媒体库卡片、继续观看或最近入库横向媒体行和迷你播放条。
+- 媒体库卡片来自 `Users/{userId}/Views`，数量来自按 `ParentId` 统计的 `TotalRecordCount`。
+- 继续观看来自 `Users/{userId}/Items/Resume`，进度来自 `UserData.PlayedPercentage` 或 `PlaybackPositionTicks / RunTimeTicks`。
+- 继续观看为空时展示 `Users/{userId}/Items/Latest` 的最近入库条目。
 - 媒体卡片通过 Coil Compose 加载 `MediaItemSummary.imageUrl`。
-- Movies、TV Shows、Collections、Settings 等尚未实现入口保持禁用/占位。
+- 首页不再展示本地硬编码 Movies、TV Shows、Anime 卡片、假进度或样例播放入口。
 
 #### 场景: 播放 OSD
 播放页进入后：
-- `PlayerView` 关闭默认控制器，由 Compose OSD 展示标题、格式信息、进度、快进/快退、播放/暂停、音轨/字幕/弹幕入口。
+- 点击媒体后先读取 `Items/{itemId}/PlaybackInfo`，`PlaybackSource.details` 携带真实媒体源和音视频/字幕流信息。
+- `PlayerView` 关闭默认控制器，由 Compose OSD 展示标题、真实容器/编码/画质信息、进度、快进/快退、播放/暂停、音轨/字幕/弹幕入口。
+- Audio/Subtitles 展示真实默认流或首个流标题；实际切换暂未实现时提供禁用原因。
 - OK/方向键唤起 OSD；Back 在 OSD 可见时先隐藏，再次 Back 退出播放页。
 - 弹幕开关和播放暂停状态同步到 AkDanmaku。
 
@@ -84,7 +89,7 @@ Emby 登录成功后：
 首页打开抽屉后：
 - 抽屉请求初始焦点并形成焦点组。
 - Back 或关闭按钮关闭抽屉，关闭后焦点返回菜单按钮。
-- 未实现的导航项和媒体库二级页显示“暂未支持”提示。
+- 未实现的导航项和媒体库二级页显示“暂未支持”提示；媒体库卡片仍展示真实数量并可用 OK/Enter 触发提示。
 
 #### 场景: 播放 OSD
 OSD 显示后：
@@ -96,7 +101,7 @@ OSD 显示后：
 无外部 API。
 
 ## 数据模型
-使用 `HomeUiState`、`HomeDashboardUiModel`、`DrawerUiState`、`MediaCardUiModel`、`PlayerOsdState` 和 `PlaybackSource`。
+使用 `HomeUiState`、`EmbyHomeDashboard`、`HomeDashboardUiModel`、`DrawerUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource` 和 `PlaybackDetails`。
 
 ## 依赖
 - data
@@ -107,6 +112,7 @@ OSD 显示后：
 - NanoHTTPD
 
 ## 变更历史
+- [202605271602_emby_real_data_replacement](../../history/2026-05/202605271602_emby_real_data_replacement/) - 首页和播放器可见数据替换为 Emby 真实 API 数据，移除样例播放入口。
 - [202605271514_emby_server_mobile_sync](../../history/2026-05/202605271514_emby_server_mobile_sync/) - 拆分 Emby 服务器配置字段，支持手机扫码同步和 token 凭证保存。
 - [202605271434_remote_control_support](../../history/2026-05/202605271434_remote_control_support/) - 补齐 TV 遥控器焦点、Back、禁用反馈和播放 OSD 操作闭环。
 - [202605271353_tv_ui_redesign_core](../../history/2026-05/202605271353_tv_ui_redesign_core/) - 落地 Cinematic Glass 配置页、首页媒体中心和播放 OSD。

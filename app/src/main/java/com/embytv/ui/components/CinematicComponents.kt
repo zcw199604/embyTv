@@ -66,7 +66,6 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
-import com.embytv.ui.home.HomeNavigationId
 import com.embytv.ui.home.HomeNavigationItem
 import com.embytv.ui.home.LibrarySummaryUiModel
 import com.embytv.ui.home.MediaCardUiModel
@@ -302,7 +301,7 @@ fun LibraryCard(
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = libraryIcon(library.id),
+                        imageVector = mediaIcon(library.id, library.title),
                         contentDescription = null,
                         tint = if (library.enabled) CinematicGlassColors.Primary else CinematicGlassColors.OnSurfaceVariant,
                         modifier = Modifier.size(24.dp),
@@ -453,7 +452,7 @@ private fun NavigationRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    if (item.id == HomeNavigationId.Home) {
+                    if (item.enabled) {
                         CinematicGlassColors.Primary.copy(alpha = 0.16f)
                     } else {
                         Color.Transparent
@@ -467,7 +466,6 @@ private fun NavigationRow(
                 imageVector = navigationIcon(item.id),
                 contentDescription = null,
                 tint = when {
-                    item.id == HomeNavigationId.Home -> CinematicGlassColors.Primary
                     item.enabled -> CinematicGlassColors.OnSurface
                     else -> CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.55f)
                 },
@@ -475,7 +473,7 @@ private fun NavigationRow(
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     text = item.title,
-                    color = if (item.enabled || item.id == HomeNavigationId.Home) {
+                    color = if (item.enabled) {
                         CinematicGlassColors.OnSurface
                     } else {
                         CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.55f)
@@ -569,18 +567,16 @@ fun RemoteHint(
     }
 }
 
-private fun navigationIcon(id: HomeNavigationId): ImageVector =
-    when (id) {
-        HomeNavigationId.Home -> Icons.Filled.Home
-        HomeNavigationId.Movies -> Icons.Filled.Movie
-        HomeNavigationId.TvShows -> Icons.Filled.Tv
-        HomeNavigationId.Collections -> Icons.Filled.Collections
-        HomeNavigationId.Settings -> Icons.Filled.Settings
-    }
+private fun navigationIcon(id: String): ImageVector = mediaIcon(id, id)
 
-private fun libraryIcon(id: String): ImageVector =
-    when (id) {
-        "movies" -> Icons.Filled.Movie
-        "tv" -> Icons.Filled.Tv
+private fun mediaIcon(id: String, title: String): ImageVector {
+    val key = "${id.lowercase()} ${title.lowercase()}"
+    return when {
+        "movie" in key || "电影" in key -> Icons.Filled.Movie
+        "tv" in key || "show" in key || "series" in key || "剧" in key -> Icons.Filled.Tv
+        "collection" in key || "合集" in key -> Icons.Filled.Collections
+        "setting" in key || "设置" in key -> Icons.Filled.Settings
+        "home" in key || "首页" in key -> Icons.Filled.Home
         else -> Icons.Filled.Star
     }
+}

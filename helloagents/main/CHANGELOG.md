@@ -9,6 +9,8 @@
 - 落地 Cinematic Glass TV 核心体验: 服务器配置页、首页媒体中心、播放 Compose OSD 与弹幕开关。
 - 新增 Coil Compose 3.4.0 用于 Emby 媒体图片加载。
 - 新增首页 Dashboard 映射和播放器 OSD reducer 单元测试。
+- 新增 Emby 首页真实 Dashboard 聚合: `Views`、按库统计、`Resume`、`Latest`。
+- 新增 `PlaybackDetails`，播放器 OSD 可展示 Emby `PlaybackInfo` 返回的真实容器、编码、画质、音轨和字幕状态。
 
 ### 变更
 - 验证 `C:\Users\MyPC\.jdks\corretto-17.0.16` 可用于 Gradle，记录当前 Android SDK 路径仍缺失。
@@ -16,10 +18,12 @@
 - 播放页关闭 Media3 默认控制器，改用 Compose OSD 管理播放、进度、返回键和弹幕快捷入口。
 - 完善 TV 遥控器操作闭环: 抽屉 Back/焦点管理、首页禁用入口提示、播放 OSD 焦点与未实现入口反馈。
 - 拆分 Emby 服务器配置字段，新增手机扫码同步到 TV 表单，并保存用户名展示字段与 Emby token 凭证，不保存密码。
+- 首页首屏不再全量拉取 Movie/Episode 列表，改为按 Emby 真实聚合接口加载媒体库、继续观看和最近入库。
 
 ### 修复
 - 移除 AGP 9 下不再需要的 `org.jetbrains.kotlin.android` 插件配置，避免 Gradle 构建在插件应用阶段失败。
 - 修复 Android SDK 36.1 的 Gradle 配置方式，避免误用 `compileSdk = "android-36.1"` 或 `compileSdkExtension = 20`。
+- 移除生产入口中的样例播放、Big Buck Bunny 和播放器硬编码 `HEVC / 4K HDR` 展示。
 
 ### 验证
 - `.\gradlew.bat :app:testDebugUnitTest` 通过。

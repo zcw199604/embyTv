@@ -65,7 +65,6 @@ fun SetupScreen(
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConnect: () -> Unit,
-    onPlaySample: () -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -123,7 +122,6 @@ fun SetupScreen(
                 onUsernameChange = onUsernameChange,
                 onPasswordChange = onPasswordChange,
                 onConnect = onConnect,
-                onPlaySample = onPlaySample,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -204,7 +202,6 @@ private fun ManualSetupPanel(
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConnect: () -> Unit,
-    onPlaySample: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     GlassPanel(modifier = modifier, cornerRadius = 12.dp) {
@@ -282,12 +279,6 @@ private fun ManualSetupPanel(
                 icon = Icons.Filled.CastConnected,
                 enabled = !state.isLoading,
                 onClick = onConnect,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            PrimaryTvButton(
-                text = "样例播放",
-                enabled = !state.isLoading,
-                onClick = onPlaySample,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

@@ -3,6 +3,8 @@ package com.embytv.data.remote
 import com.embytv.data.remote.dto.EmbyAuthRequest
 import com.embytv.data.remote.dto.EmbyAuthResponse
 import com.embytv.data.remote.dto.EmbyItemsResponse
+import com.embytv.data.remote.dto.EmbyPlaybackInfoResponse
+import com.embytv.data.remote.dto.EmbyViewsResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -25,4 +27,51 @@ interface EmbyApi {
         @Query("IncludeItemTypes") includeItemTypes: String = "Movie,Episode",
         @Query("Fields") fields: String = "Overview,PrimaryImageAspectRatio,ImageTags",
     ): EmbyItemsResponse
+
+    @GET("Users/{userId}/Views")
+    suspend fun getViews(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+    ): EmbyViewsResponse
+
+    @GET("Users/{userId}/Items")
+    suspend fun getItemsByParent(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Query("ParentId") parentId: String,
+        @Query("Recursive") recursive: Boolean = true,
+        @Query("IncludeItemTypes") includeItemTypes: String = "Movie,Episode",
+        @Query("Limit") limit: Int = 0,
+    ): EmbyItemsResponse
+
+    @GET("Users/{userId}/Items/Resume")
+    suspend fun getResumeItems(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Query("Recursive") recursive: Boolean = true,
+        @Query("MediaTypes") mediaTypes: String = "Video",
+        @Query("Fields") fields: String = MEDIA_ITEM_FIELDS,
+        @Query("Limit") limit: Int = 24,
+    ): EmbyItemsResponse
+
+    @GET("Users/{userId}/Items/Latest")
+    suspend fun getLatestItems(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Query("IncludeItemTypes") includeItemTypes: String = "Movie,Episode",
+        @Query("Fields") fields: String = MEDIA_ITEM_FIELDS,
+        @Query("Limit") limit: Int = 24,
+    ): List<com.embytv.data.remote.dto.EmbyItemDto>
+
+    @GET("Items/{itemId}/PlaybackInfo")
+    suspend fun getPlaybackInfo(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("itemId") itemId: String,
+        @Query("UserId") userId: String,
+    ): EmbyPlaybackInfoResponse
+
+    companion object {
+        const val MEDIA_ITEM_FIELDS =
+            "Overview,PrimaryImageAspectRatio,ImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesName,SeasonName,IndexNumber,ParentIndexNumber"
+    }
 }

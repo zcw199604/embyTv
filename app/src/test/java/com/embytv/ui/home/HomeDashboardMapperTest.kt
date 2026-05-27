@@ -1,5 +1,7 @@
 package com.embytv.ui.home
 
+import com.embytv.domain.model.EmbyHomeDashboard
+import com.embytv.domain.model.EmbyLibrarySummary
 import com.embytv.domain.model.MediaItemSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -8,66 +10,80 @@ import org.junit.Test
 
 class HomeDashboardMapperTest {
     @Test
-    fun mapsItemsIntoLibraryAndContinueWatchingCards() {
-        val items = listOf(
-            MediaItemSummary(
-                id = "movie-1",
-                name = "Interstellar",
-                type = "Movie",
-                overview = "Space exploration",
-                imageUrl = "https://example.test/interstellar.jpg",
-            ),
-            MediaItemSummary(
-                id = "episode-1",
-                name = "The Void",
-                type = "Episode",
-                overview = "S1 E4",
-                imageUrl = null,
+    fun mapsRealEmbyViewsAndResumeItems() {
+        val dashboard = HomeDashboardMapper.map(
+            EmbyHomeDashboard(
+                libraries = listOf(
+                    EmbyLibrarySummary(
+                        id = "9",
+                        name = "电影",
+                        type = "CollectionFolder",
+                        collectionType = "movies",
+                        itemCount = 1001,
+                        imageUrl = "https://example.test/library.jpg",
+                    ),
+                ),
+                resumeItems = listOf(
+                    MediaItemSummary(
+                        id = "episode-1",
+                        name = "第 1 集",
+                        type = "Episode",
+                        overview = "真实简介",
+                        imageUrl = "https://example.test/episode.jpg",
+                        seriesName = "真实剧集",
+                        seasonName = "Season 1",
+                        runTimeTicks = 10_000,
+                        playbackPositionTicks = 2_500,
+                        playedPercentage = 25.0,
+                        productionYear = 2026,
+                    ),
+                ),
+                latestItems = emptyList(),
             ),
         )
 
-        val dashboard = HomeDashboardMapper.map(items)
-
-        assertEquals(3, dashboard.libraries.size)
-        assertEquals("Movies", dashboard.libraries.first().title)
-        assertEquals("1 item", dashboard.libraries.first().countLabel)
-        assertEquals(2, dashboard.continueWatching.size)
-        assertEquals("Interstellar", dashboard.continueWatching.first().title)
-        assertEquals("Movie", dashboard.continueWatching.first().badge)
-        assertEquals("https://example.test/interstellar.jpg", dashboard.continueWatching.first().imageUrl)
+        assertEquals(1, dashboard.libraries.size)
+        assertEquals("电影", dashboard.libraries.first().title)
+        assertEquals("1001 items", dashboard.libraries.first().countLabel)
+        assertEquals("https://example.test/library.jpg", dashboard.libraries.first().imageUrl)
+        assertEquals(1, dashboard.continueWatching.size)
+        assertEquals("第 1 集", dashboard.continueWatching.first().title)
+        assertEquals("真实剧集", dashboard.continueWatching.first().subtitle)
+        assertEquals(0.25f, dashboard.continueWatching.first().progressFraction)
+        assertEquals("Episode", dashboard.continueWatching.first().badge)
     }
 
     @Test
-    fun marksUnimplementedNavigationDestinationsDisabled() {
-        val dashboard = HomeDashboardMapper.map(emptyList())
-
-        assertTrue(dashboard.navigationItems.first { it.id == HomeNavigationId.Home }.enabled)
-        assertFalse(dashboard.navigationItems.first { it.id == HomeNavigationId.Movies }.enabled)
-        assertFalse(dashboard.navigationItems.first { it.id == HomeNavigationId.Settings }.enabled)
-        assertEquals("Movies 暂未支持", dashboard.navigationItems.first { it.id == HomeNavigationId.Movies }.disabledReason)
-    }
-
-    @Test
-    fun marksLibraryCardsWithoutDestinationUnsupported() {
+    fun fallsBackToLatestWhenResumeIsEmpty() {
         val dashboard = HomeDashboardMapper.map(
-            listOf(
-                MediaItemSummary(
-                    id = "movie-1",
-                    name = "Interstellar",
-                    type = "Movie",
-                    overview = null,
-                    imageUrl = null,
+            EmbyHomeDashboard(
+                libraries = emptyList(),
+                resumeItems = emptyList(),
+                latestItems = listOf(
+                    MediaItemSummary(
+                        id = "movie-1",
+                        name = "新电影",
+                        type = "Movie",
+                        overview = null,
+                        imageUrl = null,
+                        productionYear = 2026,
+                    ),
                 ),
             ),
         )
 
-        val movies = dashboard.libraries.first { it.id == "movies" }
-        val anime = dashboard.libraries.first { it.id == "anime" }
+        assertEquals("最近入库", dashboard.mediaSectionTitle)
+        assertEquals("新电影", dashboard.continueWatching.single().title)
+        assertEquals(0f, dashboard.continueWatching.single().progressFraction)
+    }
 
-        assertFalse(movies.enabled)
-        assertEquals("媒体库详情暂未支持", movies.disabledReason)
-        assertFalse(anime.enabled)
-        assertEquals("Anime 暂未支持", anime.disabledReason)
+    @Test
+    fun dashboardDoesNotCreateHardcodedLibraries() {
+        val dashboard = HomeDashboardMapper.map(EmbyHomeDashboard())
+
+        assertEquals(0, dashboard.libraries.size)
+        assertFalse(dashboard.libraries.any { it.title == "Anime" })
+        assertFalse(dashboard.libraries.any { it.title == "Movies" })
     }
 
     @Test

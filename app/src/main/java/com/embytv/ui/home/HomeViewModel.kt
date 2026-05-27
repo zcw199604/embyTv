@@ -68,25 +68,7 @@ class HomeViewModel(
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             repository.authenticate(config).onSuccess { session ->
                 stopMobileSetupSync()
-                repository.loadMediaItems(session, deviceId)
-                    .onSuccess { items ->
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                session = session,
-                                items = items,
-                            )
-                        }
-                    }
-                    .onFailure { error ->
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                session = session,
-                                errorMessage = error.message ?: "媒体列表加载失败",
-                            )
-                        }
-                    }
+                loadDashboard(session)
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
@@ -98,9 +80,13 @@ class HomeViewModel(
         }
     }
 
-    fun createPlaybackSource(item: MediaItemSummary): PlaybackSource? {
+    suspend fun createPlaybackSource(item: MediaItemSummary): PlaybackSource? {
         val session = _uiState.value.session ?: return null
-        return repository.createPlaybackSource(session, item)
+        return repository.createPlaybackSourceWithDetails(session, deviceId, item)
+            .getOrElse { error ->
+                _uiState.update { it.copy(errorMessage = error.message ?: "播放信息加载失败") }
+                null
+            }
     }
 
     override fun onCleared() {
@@ -170,30 +156,43 @@ class HomeViewModel(
                     )
                     stopMobileSetupSync()
                     _uiState.update { it.copy(isLoading = true, session = session, errorMessage = null) }
-                    repository.loadMediaItems(session, deviceId)
-                        .onSuccess { items ->
-                            _uiState.update {
-                                it.copy(
-                                    isLoading = false,
-                                    session = session,
-                                    items = items,
-                                )
-                            }
+                    loadDashboard(session).onFailure { error ->
+                        repository.clearSavedCredential()
+                        deviceId = UUID.randomUUID().toString()
+                        startMobileSetupSync()
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                session = null,
+                                errorMessage = error.message ?: "登录凭证已失效，请重新登录",
+                            )
                         }
-                        .onFailure { error ->
-                            repository.clearSavedCredential()
-                            deviceId = UUID.randomUUID().toString()
-                            startMobileSetupSync()
-                            _uiState.update {
-                                it.copy(
-                                    isLoading = false,
-                                    session = null,
-                                    errorMessage = error.message ?: "登录凭证已失效，请重新登录",
-                                )
-                            }
-                        }
+                    }
                 }
         }
+    }
+
+    private suspend fun loadDashboard(session: EmbySession): Result<Unit> {
+        return repository.loadHomeDashboard(session, deviceId)
+            .onSuccess { dashboard ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        session = session,
+                        dashboard = dashboard,
+                    )
+                }
+            }
+            .onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        session = session,
+                        errorMessage = error.message ?: "媒体数据加载失败",
+                    )
+                }
+            }
+            .map { Unit }
     }
 
     class Factory(

@@ -24,7 +24,6 @@ fun EmbyTvApp(container: AppContainer) {
         HomeScreen(
             viewModel = homeViewModel,
             onPlay = { playbackSource = it },
-            onPlaySample = { playbackSource = container.samplePlaybackSource() },
         )
     } else {
         PlayerScreen(
