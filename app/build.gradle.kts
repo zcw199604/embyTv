@@ -85,6 +85,9 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.akdanmaku)
+    implementation(libs.zxing.core)
+    implementation(libs.nanohttpd)
+    implementation(libs.androidx.security.crypto)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)

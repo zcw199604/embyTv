@@ -15,11 +15,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.SettingsEthernet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +35,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -42,7 +46,10 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
+import com.embytv.core.network.QrCodeGenerator
+import com.embytv.domain.model.ServerProtocol
 import com.embytv.ui.components.GlassPanel
+import com.embytv.ui.components.FocusableGlassSurface
 import com.embytv.ui.components.PrimaryTvButton
 import com.embytv.ui.home.HomeUiState
 import com.embytv.ui.theme.CinematicGlassColors
@@ -51,7 +58,10 @@ import com.embytv.ui.theme.CinematicGlassSpacing
 @Composable
 fun SetupScreen(
     state: HomeUiState,
-    onServerUrlChange: (String) -> Unit,
+    onServerHostChange: (String) -> Unit,
+    onServerProtocolChange: (ServerProtocol) -> Unit,
+    onServerPortChange: (String) -> Unit,
+    onServerPathChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConnect: () -> Unit,
@@ -99,10 +109,17 @@ fun SetupScreen(
             horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.Gutter),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            QuickSetupPanel(modifier = Modifier.weight(1f))
+            QuickSetupPanel(
+                qrUrl = state.mobileSetupSync.qrUrl,
+                errorMessage = state.mobileSetupSync.errorMessage,
+                modifier = Modifier.weight(1f),
+            )
             ManualSetupPanel(
                 state = state,
-                onServerUrlChange = onServerUrlChange,
+                onServerHostChange = onServerHostChange,
+                onServerProtocolChange = onServerProtocolChange,
+                onServerPortChange = onServerPortChange,
+                onServerPathChange = onServerPathChange,
                 onUsernameChange = onUsernameChange,
                 onPasswordChange = onPasswordChange,
                 onConnect = onConnect,
@@ -114,7 +131,11 @@ fun SetupScreen(
 }
 
 @Composable
-private fun QuickSetupPanel(modifier: Modifier = Modifier) {
+private fun QuickSetupPanel(
+    qrUrl: String?,
+    errorMessage: String?,
+    modifier: Modifier = Modifier,
+) {
     GlassPanel(modifier = modifier, cornerRadius = 12.dp) {
         Column(
             modifier = Modifier.padding(44.dp),
@@ -128,24 +149,18 @@ private fun QuickSetupPanel(modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "使用手机访问 emby.media/pin 可完成快速配对。当前版本仅展示占位码，不调用真实配对接口。",
+                text = "使用手机扫码填写服务器信息，点击同步后会更新电视端表单。",
                 color = CinematicGlassColors.OnSurfaceVariant,
                 fontSize = 18.sp,
                 lineHeight = 26.sp,
             )
-            QrPlaceholder()
+            QrCodeBox(qrUrl = qrUrl)
             Text(
-                text = "482 915",
-                color = CinematicGlassColors.Primary,
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 5.sp,
-            )
-            Text(
-                text = "PAIRING CODE PLACEHOLDER",
+                text = errorMessage ?: qrUrl ?: "正在准备手机同步入口",
                 color = CinematicGlassColors.OnSurfaceVariant,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
+                lineHeight = 18.sp,
             )
         }
     }
@@ -153,38 +168,27 @@ private fun QuickSetupPanel(modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun QrPlaceholder() {
+private fun QrCodeBox(qrUrl: String?) {
     Box(
         modifier = Modifier
             .size(260.dp)
             .background(Color.White, RoundedCornerShape(8.dp))
             .padding(18.dp),
     ) {
-        val cells = listOf(
-            0, 1, 2, 4, 5, 7, 10, 12, 15, 16, 19, 22, 25, 27, 29, 30, 32, 35, 37, 40,
-            42, 43, 46, 48, 51, 52, 56, 58, 60, 63, 64, 66, 70, 72, 75, 77, 80,
-        )
-        Box(modifier = Modifier.fillMaxSize()) {
-            cells.forEach { index ->
-                val x = index % 9
-                val y = index / 9
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = (x * 24).dp, top = (y * 24).dp)
-                        .size(18.dp)
-                        .background(Color.Black),
-                )
-            }
+        if (qrUrl == null) {
             Icon(
                 imageVector = Icons.Filled.CastConnected,
                 contentDescription = null,
                 tint = CinematicGlassColors.Primary,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(46.dp)
-                    .background(Color.White, RoundedCornerShape(999.dp))
-                    .padding(8.dp),
+                modifier = Modifier.align(Alignment.Center).size(72.dp),
+            )
+        } else {
+            val qrImage = remember(qrUrl) { QrCodeGenerator.generate(qrUrl) }
+            Image(
+                bitmap = qrImage,
+                contentDescription = "手机同步二维码",
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }
@@ -193,7 +197,10 @@ private fun QrPlaceholder() {
 @Composable
 private fun ManualSetupPanel(
     state: HomeUiState,
-    onServerUrlChange: (String) -> Unit,
+    onServerHostChange: (String) -> Unit,
+    onServerProtocolChange: (ServerProtocol) -> Unit,
+    onServerPortChange: (String) -> Unit,
+    onServerPathChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConnect: () -> Unit,
@@ -212,29 +219,54 @@ private fun ManualSetupPanel(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "输入 Emby 服务器地址和账号信息，连接成功后进入媒体中心。",
+                text = "输入 Emby 服务器信息和账号，连接成功后进入媒体中心。",
                 color = CinematicGlassColors.OnSurfaceVariant,
                 fontSize = 18.sp,
             )
+            val draft = state.serverConfig
             TvSetupInputField(
-                label = "Server Address",
-                value = state.serverUrl,
-                placeholder = "http://192.168.1.10:8096",
+                label = "服务器地址",
+                value = draft.host,
+                placeholder = "192.168.1.10",
                 icon = Icons.Filled.Dns,
                 imeAction = ImeAction.Next,
-                onValueChange = onServerUrlChange,
+                onValueChange = onServerHostChange,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxWidth()) {
+                ProtocolSelector(
+                    value = draft.protocol,
+                    onValueChange = onServerProtocolChange,
+                    modifier = Modifier.weight(1f),
+                )
+                TvSetupInputField(
+                    label = "端口",
+                    value = draft.port,
+                    placeholder = draft.protocol.defaultPort.toString(),
+                    icon = Icons.Filled.SettingsEthernet,
+                    imeAction = ImeAction.Next,
+                    onValueChange = onServerPortChange,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            TvSetupInputField(
+                label = "路径(可选, 无则留空)",
+                value = draft.path,
+                placeholder = "emby",
+                icon = Icons.Filled.Route,
+                imeAction = ImeAction.Next,
+                onValueChange = onServerPathChange,
             )
             TvSetupInputField(
-                label = "Username",
-                value = state.username,
+                label = "用户名",
+                value = draft.username,
                 placeholder = "Emby 用户名",
                 icon = Icons.Filled.Person,
                 imeAction = ImeAction.Next,
                 onValueChange = onUsernameChange,
             )
             TvSetupInputField(
-                label = "Password",
-                value = state.password,
+                label = "密码",
+                value = draft.password,
                 placeholder = "可为空",
                 icon = Icons.Filled.Key,
                 isPassword = true,
@@ -272,8 +304,9 @@ private fun TvSetupInputField(
     isPassword: Boolean = false,
     imeAction: ImeAction,
     onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(text = label, color = CinematicGlassColors.OnSurfaceVariant, fontSize = 14.sp)
         var hasFocus by remember { mutableStateOf(false) }
         Row(
@@ -309,6 +342,63 @@ private fun TvSetupInputField(
                         innerTextField()
                     }
                 },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProtocolSelector(
+    value: ServerProtocol,
+    onValueChange: (ServerProtocol) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = "协议", color = CinematicGlassColors.OnSurfaceVariant, fontSize = 14.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            ProtocolOption(
+                label = "HTTPS",
+                selected = value == ServerProtocol.Https,
+                onClick = { onValueChange(ServerProtocol.Https) },
+                modifier = Modifier.weight(1f),
+            )
+            ProtocolOption(
+                label = "HTTP",
+                selected = value == ServerProtocol.Http,
+                onClick = { onValueChange(ServerProtocol.Http) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProtocolOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FocusableGlassSurface(
+        modifier = modifier.height(62.dp),
+        cornerRadius = 8.dp,
+        onClick = onClick,
+    ) { focused ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(
+                    width = if (focused || selected) 2.dp else 1.dp,
+                    color = if (focused || selected) CinematicGlassColors.Primary else CinematicGlassColors.OutlineVariant,
+                    shape = RoundedCornerShape(8.dp),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                color = if (selected) CinematicGlassColors.Primary else CinematicGlassColors.OnSurface,
+                fontSize = 18.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             )
         }
     }

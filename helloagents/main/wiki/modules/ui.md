@@ -10,12 +10,35 @@
 
 ## 规范
 
+### 需求: 结构化 Emby 服务器配置与手机同步
+**模块:** ui
+服务器初始化配置使用结构化字段，并允许手机扫码填写后同步到 TV 表单。
+
+#### 场景: TV 端配置表单
+未连接 Emby 时：
+- 设置页展示服务器地址、协议、端口、路径、用户名、密码六个配置项。
+- 协议支持 HTTPS/HTTP，HTTPS 默认端口 443，HTTP 默认端口 8096。
+- 路径为可选项，连接前统一规范化为 Retrofit 可用的 `baseUrl`。
+- 密码仅作为登录输入保留在内存，不落盘。
+
+#### 场景: 手机扫码同步
+设置页 Quick Setup 区域：
+- 启动 TV 本机临时局域网同步页并展示二维码。
+- 手机浏览器打开后填写同一组字段，点击“同步到电视”后只更新 TV 表单，不自动登录。
+- 同步入口使用一次性配对 token，离开设置页或连接成功后停止服务。
+
+#### 场景: 登录凭证
+Emby 登录成功后：
+- 保存 `serverUrl`、`userId`、`username`、`accessToken`、`serverId`、`deviceId` 和保存时间。
+- `username` 仅用于后续多服务器/多用户列表展示和身份区分。
+- 后续请求使用 `accessToken`，不保存密码。
+
 ### 需求: Android TV 初始化
 **模块:** ui
 使用 Compose 构建横屏电视页面，优先满足遥控器焦点和大屏布局。
 
 #### 场景: 首页连接
-用户输入 Emby 地址和账号后：
+用户输入 Emby 服务器配置和账号后：
 - 能触发认证与媒体列表加载。
 - 加载失败时显示可读错误。
 
@@ -80,8 +103,11 @@ OSD 显示后：
 - player
 - danmaku
 - Coil Compose
+- ZXing Core
+- NanoHTTPD
 
 ## 变更历史
+- [202605271514_emby_server_mobile_sync](../../history/2026-05/202605271514_emby_server_mobile_sync/) - 拆分 Emby 服务器配置字段，支持手机扫码同步和 token 凭证保存。
 - [202605271434_remote_control_support](../../history/2026-05/202605271434_remote_control_support/) - 补齐 TV 遥控器焦点、Back、禁用反馈和播放 OSD 操作闭环。
 - [202605271353_tv_ui_redesign_core](../../history/2026-05/202605271353_tv_ui_redesign_core/) - 落地 Cinematic Glass 配置页、首页媒体中心和播放 OSD。
 - [202605201342_emby_tv_init](../../history/2026-05/202605201342_emby_tv_init/) - 初始化 TV UI 与播放页面。

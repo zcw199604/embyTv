@@ -4,6 +4,7 @@ import android.content.Context
 import com.embytv.core.danmaku.AkDanmakuBridge
 import com.embytv.core.network.NetworkModule
 import com.embytv.core.player.Media3PlayerFactory
+import com.embytv.data.local.EncryptedEmbyCredentialStore
 import com.embytv.data.remote.EmbyApiFactory
 import com.embytv.data.repository.EmbyRepository
 import com.embytv.data.repository.EmbyStreamUrlBuilder
@@ -27,6 +28,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
         EmbyRepository(
             apiFactory = EmbyApiFactory(okHttpClient),
             streamUrlBuilder = streamUrlBuilder,
+            credentialStore = EncryptedEmbyCredentialStore(appContext),
         )
 
     override val playerFactory: Media3PlayerFactory =

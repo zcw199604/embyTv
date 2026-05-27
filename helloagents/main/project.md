@@ -23,6 +23,9 @@
 - **播放器:** 通过 `Media3PlayerFactory` 创建，默认启用 `EXTENSION_RENDERER_MODE_PREFER`；播放页关闭 Media3 默认控制器，使用 Compose OSD 管理 TV 操作。
 - **FFmpeg 扩展:** Media3 FFmpeg 扩展未发布到 Google Maven，需自行构建 AAR 放入 `app/libs/`。
 - **弹幕:** AkDanmaku 通过 `AkDanmakuBridge` 与领域模型隔离。
+- **服务器配置:** TV 端使用结构化字段生成 Emby `baseUrl`；手机扫码同步通过 TV 本机临时 HTTP 服务完成。
+- **凭证:** Emby 用户名和密码只用于 `/Users/AuthenticateByName`；本地保存 `accessToken`、`userId`、`serverId`、`serverUrl`、`deviceId`、`username` 展示字段和保存时间，不保存密码。
+- **新增依赖:** ZXing Core 3.5.4 生成二维码，NanoHTTPD 2.3.1 提供临时手机同步页，AndroidX Security Crypto 1.1.0 保存访问凭证。
 
 ---
 
@@ -30,6 +33,7 @@
 - **网络错误:** Repository 使用 `Result` 向 ViewModel 返回错误。
 - **UI 错误:** Home 页面通过 `errorMessage` 展示可恢复错误。
 - **日志:** 当前仅启用 OkHttp BASIC 日志；正式发布前应按构建类型降低敏感输出。
+- **敏感信息:** 密码、手机同步请求体和 Emby `accessToken` 禁止进入日志、错误文案或 URL。
 
 ---
 

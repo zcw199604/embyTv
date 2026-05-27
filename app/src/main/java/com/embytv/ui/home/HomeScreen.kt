@@ -52,7 +52,10 @@ fun HomeScreen(
     if (state.session == null) {
         SetupScreen(
             state = state,
-            onServerUrlChange = viewModel::updateServerUrl,
+            onServerHostChange = viewModel::updateServerHost,
+            onServerProtocolChange = viewModel::updateServerProtocol,
+            onServerPortChange = viewModel::updateServerPort,
+            onServerPathChange = viewModel::updateServerPath,
             onUsernameChange = viewModel::updateUsername,
             onPasswordChange = viewModel::updatePassword,
             onConnect = viewModel::connect,
