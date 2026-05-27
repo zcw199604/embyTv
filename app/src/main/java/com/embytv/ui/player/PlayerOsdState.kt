@@ -14,6 +14,7 @@ data class PlayerOsdState(
     val danmakuEnabled: Boolean = true,
     val danmakuPaused: Boolean = false,
     val selectedQuickPanel: PlayerQuickPanel? = null,
+    val feedbackMessage: String? = null,
 ) {
     val progressFraction: Float
         get() = if (durationMs <= 0L) {
@@ -29,6 +30,8 @@ sealed interface PlayerOsdAction {
     data object BackPressed : PlayerOsdAction
     data object TogglePlayPause : PlayerOsdAction
     data object ToggleDanmaku : PlayerOsdAction
+    data object ClearFeedback : PlayerOsdAction
+    data class UnsupportedAction(val message: String) : PlayerOsdAction
     data class SelectQuickPanel(val panel: PlayerQuickPanel?) : PlayerOsdAction
     data class ProgressChanged(val positionMs: Long, val durationMs: Long) : PlayerOsdAction
 }
@@ -43,6 +46,7 @@ object PlayerOsdReducer {
         when (action) {
             PlayerOsdAction.UserInteraction -> PlayerOsdResult(state.copy(visible = true))
             PlayerOsdAction.Hide -> PlayerOsdResult(state.copy(visible = false, selectedQuickPanel = null))
+            PlayerOsdAction.ClearFeedback -> PlayerOsdResult(state.copy(feedbackMessage = null))
             PlayerOsdAction.BackPressed -> {
                 if (state.visible) {
                     PlayerOsdResult(state.copy(visible = false, selectedQuickPanel = null))
@@ -71,8 +75,11 @@ object PlayerOsdReducer {
                     ),
                 )
             }
+            is PlayerOsdAction.UnsupportedAction -> {
+                PlayerOsdResult(state.copy(visible = true, feedbackMessage = action.message))
+            }
             is PlayerOsdAction.SelectQuickPanel -> {
-                PlayerOsdResult(state.copy(visible = true, selectedQuickPanel = action.panel))
+                PlayerOsdResult(state.copy(visible = true, selectedQuickPanel = action.panel, feedbackMessage = null))
             }
             is PlayerOsdAction.ProgressChanged -> {
                 PlayerOsdResult(

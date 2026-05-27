@@ -35,6 +35,29 @@ class PlayerOsdReducerTest {
     }
 
     @Test
+    fun unsupportedActionsKeepOsdVisibleAndExposeFeedback() {
+        val result = PlayerOsdReducer.reduce(
+            PlayerOsdState(visible = true),
+            PlayerOsdAction.UnsupportedAction("Audio 暂未支持"),
+        )
+
+        assertTrue(result.state.visible)
+        assertEquals("Audio 暂未支持", result.state.feedbackMessage)
+        assertFalse(result.exitPlayer)
+    }
+
+    @Test
+    fun clearingFeedbackDoesNotHideOsd() {
+        val result = PlayerOsdReducer.reduce(
+            PlayerOsdState(visible = true, feedbackMessage = "暂未支持"),
+            PlayerOsdAction.ClearFeedback,
+        )
+
+        assertTrue(result.state.visible)
+        assertEquals(null, result.state.feedbackMessage)
+    }
+
+    @Test
     fun togglesPlaybackAndDanmakuState() {
         val paused = PlayerOsdReducer.reduce(
             PlayerOsdState(isPlaying = true, danmakuEnabled = true),

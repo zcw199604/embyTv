@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
@@ -39,6 +41,7 @@ import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +51,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -94,10 +99,13 @@ fun FocusableGlassSurface(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 12.dp,
     enabled: Boolean = true,
+    disabledReason: String? = null,
     onClick: (() -> Unit)? = null,
+    onDisabledClick: ((String) -> Unit)? = null,
     content: @Composable (Boolean) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val canFocus = enabled || disabledReason != null
     val scale by animateFloatAsState(
         targetValue = if (focused && enabled) 1.035f else 1f,
         label = "focused-scale",
@@ -106,9 +114,17 @@ fun FocusableGlassSurface(
         modifier = modifier
             .scale(scale)
             .onFocusChanged { focused = it.isFocused }
-            .focusable(enabled)
-            .then(if (onClick != null && enabled) Modifier.clickable(onClick = onClick) else Modifier),
-        focused = focused && enabled,
+            .focusable(canFocus)
+            .then(
+                when {
+                    onClick != null && enabled -> Modifier.clickable(onClick = onClick)
+                    disabledReason != null && onDisabledClick != null -> Modifier.clickable {
+                        onDisabledClick(disabledReason)
+                    }
+                    else -> Modifier
+                },
+            ),
+        focused = focused,
         cornerRadius = cornerRadius,
     ) {
         content(focused && enabled)
@@ -251,11 +267,14 @@ fun LibraryCard(
     library: LibrarySummaryUiModel,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
+    onUnsupported: (String) -> Unit = {},
 ) {
     FocusableGlassSurface(
         modifier = modifier.aspectRatio(16f / 9f),
         enabled = library.enabled,
+        disabledReason = library.disabledReason,
         onClick = onClick,
+        onDisabledClick = onUnsupported,
     ) { focused ->
         Box(modifier = Modifier.fillMaxSize()) {
             NetworkBackdropImage(
@@ -304,7 +323,7 @@ fun LibraryCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = if (library.enabled) library.countLabel else "Coming soon",
+                    text = if (library.enabled) library.countLabel else library.disabledReason ?: "Coming soon",
                     color = CinematicGlassColors.OnSurfaceVariant,
                     fontSize = 15.sp,
                 )
@@ -318,6 +337,7 @@ fun TopChromeBar(
     title: String,
     subtitle: String,
     onMenuClick: () -> Unit,
+    menuFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -328,7 +348,12 @@ fun TopChromeBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            RoundIconButton(icon = Icons.Filled.Menu, contentDescription = "打开导航", onClick = onMenuClick)
+            RoundIconButton(
+                icon = Icons.Filled.Menu,
+                contentDescription = "打开导航",
+                onClick = onMenuClick,
+                modifier = menuFocusRequester?.let { Modifier.focusRequester(it) } ?: Modifier,
+            )
             Column {
                 Text(text = title, color = CinematicGlassColors.Primary, fontSize = 30.sp, fontWeight = FontWeight.Black)
                 Text(text = subtitle, color = CinematicGlassColors.OnSurfaceVariant, fontSize = 13.sp)
@@ -347,9 +372,16 @@ fun NavigationDrawerPanel(
     items: List<HomeNavigationItem>,
     visible: Boolean,
     onClose: () -> Unit,
+    onItemClick: (HomeNavigationItem) -> Unit,
+    onUnsupported: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!visible) return
+    val closeFocusRequester = remember { FocusRequester() }
+    BackHandler(enabled = true, onBack = onClose)
+    LaunchedEffect(Unit) {
+        closeFocusRequester.requestFocus()
+    }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -364,6 +396,7 @@ fun NavigationDrawerPanel(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .focusGroup()
                     .padding(horizontal = 24.dp, vertical = 42.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
@@ -376,11 +409,20 @@ fun NavigationDrawerPanel(
                         Icon(Icons.Filled.Dns, contentDescription = null, tint = CinematicGlassColors.Primary)
                         Text("Emby Media", color = CinematicGlassColors.Primary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     }
-                    RoundIconButton(icon = Icons.Filled.Close, contentDescription = "关闭导航", onClick = onClose)
+                    RoundIconButton(
+                        icon = Icons.Filled.Close,
+                        contentDescription = "关闭导航",
+                        onClick = onClose,
+                        modifier = Modifier.focusRequester(closeFocusRequester),
+                    )
                 }
                 Spacer(modifier = Modifier.height(18.dp))
                 items.forEach { item ->
-                    NavigationRow(item = item)
+                    NavigationRow(
+                        item = item,
+                        onClick = { onItemClick(item) },
+                        onUnsupported = onUnsupported,
+                    )
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
@@ -394,41 +436,62 @@ fun NavigationDrawerPanel(
 }
 
 @Composable
-private fun NavigationRow(item: HomeNavigationItem) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(
-                if (item.id == HomeNavigationId.Home) {
-                    CinematicGlassColors.Primary.copy(alpha = 0.16f)
-                } else {
-                    Color.Transparent
+private fun NavigationRow(
+    item: HomeNavigationItem,
+    onClick: () -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    FocusableGlassSurface(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 10.dp,
+        enabled = item.enabled,
+        disabledReason = item.disabledReason,
+        onClick = onClick,
+        onDisabledClick = onUnsupported,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    if (item.id == HomeNavigationId.Home) {
+                        CinematicGlassColors.Primary.copy(alpha = 0.16f)
+                    } else {
+                        Color.Transparent
+                    },
+                )
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = navigationIcon(item.id),
+                contentDescription = null,
+                tint = when {
+                    item.id == HomeNavigationId.Home -> CinematicGlassColors.Primary
+                    item.enabled -> CinematicGlassColors.OnSurface
+                    else -> CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.55f)
                 },
             )
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = navigationIcon(item.id),
-            contentDescription = null,
-            tint = when {
-                item.id == HomeNavigationId.Home -> CinematicGlassColors.Primary
-                item.enabled -> CinematicGlassColors.OnSurface
-                else -> CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.42f)
-            },
-        )
-        Text(
-            text = item.title,
-            color = if (item.enabled || item.id == HomeNavigationId.Home) {
-                CinematicGlassColors.OnSurface
-            } else {
-                CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.42f)
-            },
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Medium,
-        )
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = item.title,
+                    color = if (item.enabled || item.id == HomeNavigationId.Home) {
+                        CinematicGlassColors.OnSurface
+                    } else {
+                        CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.55f)
+                    },
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                item.disabledReason?.let { reason ->
+                    Text(
+                        text = reason,
+                        color = CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.6f),
+                        fontSize = 12.sp,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -486,6 +549,23 @@ fun FavoriteBadge(modifier: Modifier = Modifier) {
     ) {
         Icon(Icons.Filled.Star, contentDescription = null, tint = CinematicGlassColors.Secondary, modifier = Modifier.size(15.dp))
         Text("FAVORITE", color = CinematicGlassColors.Secondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun RemoteHint(
+    message: String?,
+    modifier: Modifier = Modifier,
+) {
+    if (message.isNullOrBlank()) return
+    GlassPanel(modifier = modifier, cornerRadius = 999.dp) {
+        Text(
+            text = message,
+            color = CinematicGlassColors.OnSurface,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+        )
     }
 }
 

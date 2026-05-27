@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.Dns
@@ -33,6 +34,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -219,6 +221,7 @@ private fun ManualSetupPanel(
                 value = state.serverUrl,
                 placeholder = "http://192.168.1.10:8096",
                 icon = Icons.Filled.Dns,
+                imeAction = ImeAction.Next,
                 onValueChange = onServerUrlChange,
             )
             TvSetupInputField(
@@ -226,6 +229,7 @@ private fun ManualSetupPanel(
                 value = state.username,
                 placeholder = "Emby 用户名",
                 icon = Icons.Filled.Person,
+                imeAction = ImeAction.Next,
                 onValueChange = onUsernameChange,
             )
             TvSetupInputField(
@@ -234,6 +238,7 @@ private fun ManualSetupPanel(
                 placeholder = "可为空",
                 icon = Icons.Filled.Key,
                 isPassword = true,
+                imeAction = ImeAction.Done,
                 onValueChange = onPasswordChange,
             )
             state.errorMessage?.let {
@@ -265,6 +270,7 @@ private fun TvSetupInputField(
     placeholder: String,
     icon: ImageVector,
     isPassword: Boolean = false,
+    imeAction: ImeAction,
     onValueChange: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -290,6 +296,7 @@ private fun TvSetupInputField(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = imeAction),
                 visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
                 textStyle = TextStyle(color = CinematicGlassColors.OnSurface, fontSize = 20.sp),
                 cursorBrush = SolidColor(CinematicGlassColors.Primary),

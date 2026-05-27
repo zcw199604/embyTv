@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +35,7 @@ import com.embytv.ui.components.LibraryCard
 import com.embytv.ui.components.MediaPosterCard
 import com.embytv.ui.components.NavigationDrawerPanel
 import com.embytv.ui.components.PrimaryTvButton
+import com.embytv.ui.components.RemoteHint
 import com.embytv.ui.components.TopChromeBar
 import com.embytv.ui.setup.SetupScreen
 import com.embytv.ui.theme.CinematicGlassColors
@@ -73,7 +76,16 @@ private fun HomeDashboardScreen(
     onPlaySample: () -> Unit,
 ) {
     val dashboard = remember(state.items) { HomeDashboardMapper.map(state.items) }
-    var drawerVisible by remember { mutableStateOf(false) }
+    var drawerState by remember { mutableStateOf(DrawerUiState()) }
+    var hintMessage by remember { mutableStateOf<String?>(null) }
+    val menuFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(drawerState.restoreMenuFocus) {
+        if (drawerState.restoreMenuFocus) {
+            menuFocusRequester.requestFocus()
+            drawerState = drawerState.menuFocusRestored()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -105,7 +117,8 @@ private fun HomeDashboardScreen(
             TopChromeBar(
                 title = "EMBY",
                 subtitle = "Subtitles: ON · v0.1.0",
-                onMenuClick = { drawerVisible = true },
+                onMenuClick = { drawerState = drawerState.open() },
+                menuFocusRequester = menuFocusRequester,
             )
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -134,7 +147,8 @@ private fun HomeDashboardScreen(
                     LibraryCard(
                         library = library,
                         modifier = Modifier.weight(1f),
-                        onClick = {},
+                        onClick = { hintMessage = library.disabledReason },
+                        onUnsupported = { hintMessage = it },
                     )
                 }
             }
@@ -167,10 +181,22 @@ private fun HomeDashboardScreen(
             }
         }
         MiniPlayerBar(modifier = Modifier.align(Alignment.BottomCenter))
+        RemoteHint(
+            message = hintMessage,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 106.dp),
+        )
         NavigationDrawerPanel(
             items = dashboard.navigationItems,
-            visible = drawerVisible,
-            onClose = { drawerVisible = false },
+            visible = drawerState.isOpen,
+            onClose = { drawerState = drawerState.close() },
+            onItemClick = { item ->
+                if (item.id == HomeNavigationId.Home) {
+                    drawerState = drawerState.close()
+                }
+            },
+            onUnsupported = { hintMessage = it },
         )
     }
 }

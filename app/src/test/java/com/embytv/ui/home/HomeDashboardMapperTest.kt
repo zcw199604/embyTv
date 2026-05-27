@@ -44,5 +44,39 @@ class HomeDashboardMapperTest {
         assertTrue(dashboard.navigationItems.first { it.id == HomeNavigationId.Home }.enabled)
         assertFalse(dashboard.navigationItems.first { it.id == HomeNavigationId.Movies }.enabled)
         assertFalse(dashboard.navigationItems.first { it.id == HomeNavigationId.Settings }.enabled)
+        assertEquals("Movies 暂未支持", dashboard.navigationItems.first { it.id == HomeNavigationId.Movies }.disabledReason)
+    }
+
+    @Test
+    fun marksLibraryCardsWithoutDestinationUnsupported() {
+        val dashboard = HomeDashboardMapper.map(
+            listOf(
+                MediaItemSummary(
+                    id = "movie-1",
+                    name = "Interstellar",
+                    type = "Movie",
+                    overview = null,
+                    imageUrl = null,
+                ),
+            ),
+        )
+
+        val movies = dashboard.libraries.first { it.id == "movies" }
+        val anime = dashboard.libraries.first { it.id == "anime" }
+
+        assertFalse(movies.enabled)
+        assertEquals("媒体库详情暂未支持", movies.disabledReason)
+        assertFalse(anime.enabled)
+        assertEquals("Anime 暂未支持", anime.disabledReason)
+    }
+
+    @Test
+    fun closesDrawerOnBackWhenOpen() {
+        val open = DrawerUiState(isOpen = true)
+
+        val closed = open.onBack()
+
+        assertFalse(closed.isOpen)
+        assertTrue(closed.restoreMenuFocus)
     }
 }

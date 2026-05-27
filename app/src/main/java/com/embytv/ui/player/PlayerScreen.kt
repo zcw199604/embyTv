@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +65,7 @@ import com.embytv.core.di.AppContainer
 import com.embytv.domain.model.PlaybackSource
 import com.embytv.ui.components.FocusableGlassSurface
 import com.embytv.ui.components.GlassPanel
+import com.embytv.ui.components.RemoteHint
 import com.embytv.ui.theme.CinematicGlassColors
 import com.embytv.ui.theme.CinematicGlassSpacing
 import com.kuaishou.akdanmaku.DanmakuConfig
@@ -177,6 +179,14 @@ fun PlayerScreen(
                         dispatch(PlayerOsdAction.BackPressed)
                         true
                     }
+                    else -> false
+                }
+            }
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyUp || osdState.visible) {
+                    return@onKeyEvent false
+                }
+                when (event.key) {
                     Key.DirectionCenter, Key.Enter, Key.NumPadEnter,
                     Key.DirectionUp, Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight -> {
                         dispatch(PlayerOsdAction.UserInteraction)
@@ -229,6 +239,8 @@ fun PlayerScreen(
             },
             onToggleDanmaku = { dispatch(PlayerOsdAction.ToggleDanmaku) },
             onQuickPanel = { dispatch(PlayerOsdAction.SelectQuickPanel(it)) },
+            onUnsupported = { dispatch(PlayerOsdAction.UnsupportedAction(it)) },
+            onClearFeedback = { dispatch(PlayerOsdAction.ClearFeedback) },
         )
     }
 }
@@ -243,8 +255,17 @@ private fun PlayerOsdOverlay(
     onForward10: () -> Unit,
     onToggleDanmaku: () -> Unit,
     onQuickPanel: (PlayerQuickPanel?) -> Unit,
+    onUnsupported: (String) -> Unit,
+    onClearFeedback: () -> Unit,
 ) {
     if (!state.visible) return
+    val playFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(state.visible) {
+        if (state.visible) {
+            playFocusRequester.requestFocus()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
@@ -265,7 +286,7 @@ private fun PlayerOsdOverlay(
             horizontalArrangement = Arrangement.spacedBy(18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            OsdIconButton(icon = Icons.AutoMirrored.Filled.ArrowBack, label = "返回", onClick = onBack)
+            OsdIconButton(icon = Icons.AutoMirrored.Filled.ArrowBack, label = "返回", onClick = onBack, onUnsupported = onUnsupported)
             Column {
                 Text(
                     text = title.ifBlank { "Emby Playback" },
@@ -332,23 +353,32 @@ private fun PlayerOsdOverlay(
                 QuickSettingPill(
                     icon = Icons.AutoMirrored.Filled.VolumeUp,
                     label = "Audio",
-                    value = "Default Track",
+                    value = "暂未支持",
                     selected = state.selectedQuickPanel == PlayerQuickPanel.Audio,
+                    enabled = false,
+                    disabledReason = "Audio 暂未支持",
                     onClick = { onQuickPanel(PlayerQuickPanel.Audio) },
+                    onUnsupported = onUnsupported,
                 )
                 QuickSettingPill(
                     icon = Icons.Filled.Subtitles,
                     label = "Subtitles",
-                    value = "Embedded / External",
+                    value = "暂未支持",
                     selected = state.selectedQuickPanel == PlayerQuickPanel.Subtitles,
+                    enabled = false,
+                    disabledReason = "Subtitles 暂未支持",
                     onClick = { onQuickPanel(PlayerQuickPanel.Subtitles) },
+                    onUnsupported = onUnsupported,
                 )
                 QuickSettingPill(
                     icon = Icons.AutoMirrored.Filled.Chat,
                     label = "Danmaku",
                     value = if (state.danmakuEnabled) "On" else "Off",
                     selected = state.selectedQuickPanel == PlayerQuickPanel.Danmaku,
+                    enabled = true,
+                    disabledReason = null,
                     onClick = onToggleDanmaku,
+                    onUnsupported = onUnsupported,
                 )
             }
             ProgressRail(state = state)
@@ -357,22 +387,44 @@ private fun PlayerOsdOverlay(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OsdIconButton(icon = Icons.Filled.SkipPrevious, label = "上一集", onClick = { })
+                OsdIconButton(
+                    icon = Icons.Filled.SkipPrevious,
+                    label = "上一集",
+                    enabled = false,
+                    disabledReason = "上一集暂未支持",
+                    onClick = {},
+                    onUnsupported = onUnsupported,
+                )
                 Spacer(modifier = Modifier.width(28.dp))
-                OsdIconButton(icon = Icons.Filled.Replay10, label = "快退 10 秒", onClick = onReplay10, large = true)
+                OsdIconButton(icon = Icons.Filled.Replay10, label = "快退 10 秒", onClick = onReplay10, large = true, onUnsupported = onUnsupported)
                 Spacer(modifier = Modifier.width(34.dp))
                 OsdIconButton(
                     icon = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     label = if (state.isPlaying) "暂停" else "播放",
                     onClick = onPlayPause,
                     primary = true,
+                    focusRequester = playFocusRequester,
+                    onUnsupported = onUnsupported,
                 )
                 Spacer(modifier = Modifier.width(34.dp))
-                OsdIconButton(icon = Icons.Filled.Forward10, label = "快进 10 秒", onClick = onForward10, large = true)
+                OsdIconButton(icon = Icons.Filled.Forward10, label = "快进 10 秒", onClick = onForward10, large = true, onUnsupported = onUnsupported)
                 Spacer(modifier = Modifier.width(28.dp))
-                OsdIconButton(icon = Icons.Filled.SkipNext, label = "下一集", onClick = { })
+                OsdIconButton(
+                    icon = Icons.Filled.SkipNext,
+                    label = "下一集",
+                    enabled = false,
+                    disabledReason = "下一集暂未支持",
+                    onClick = {},
+                    onUnsupported = onUnsupported,
+                )
             }
         }
+        RemoteHint(
+            message = state.feedbackMessage,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(top = 160.dp),
+        )
     }
 }
 
@@ -382,11 +434,17 @@ private fun QuickSettingPill(
     label: String,
     value: String,
     selected: Boolean,
+    enabled: Boolean,
+    disabledReason: String?,
     onClick: () -> Unit,
+    onUnsupported: (String) -> Unit,
 ) {
     FocusableGlassSurface(
         cornerRadius = 12.dp,
+        enabled = enabled,
+        disabledReason = disabledReason,
         onClick = onClick,
+        onDisabledClick = onUnsupported,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
@@ -432,6 +490,10 @@ private fun OsdIconButton(
     onClick: () -> Unit,
     primary: Boolean = false,
     large: Boolean = false,
+    enabled: Boolean = true,
+    disabledReason: String? = null,
+    focusRequester: FocusRequester? = null,
+    onUnsupported: (String) -> Unit,
 ) {
     val size = when {
         primary -> 76.dp
@@ -439,9 +501,14 @@ private fun OsdIconButton(
         else -> 48.dp
     }
     FocusableGlassSurface(
-        modifier = Modifier.size(size),
+        modifier = Modifier
+            .size(size)
+            .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier),
         cornerRadius = 999.dp,
+        enabled = enabled,
+        disabledReason = disabledReason,
         onClick = onClick,
+        onDisabledClick = onUnsupported,
     ) {
         Box(
             modifier = Modifier
