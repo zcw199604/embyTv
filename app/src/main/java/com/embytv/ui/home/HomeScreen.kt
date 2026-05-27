@@ -1,16 +1,22 @@
 package com.embytv.ui.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -22,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,7 +41,9 @@ import com.embytv.ui.components.GlassPanel
 import com.embytv.ui.components.LibraryCard
 import com.embytv.ui.components.MediaPosterCard
 import com.embytv.ui.components.NavigationDrawerPanel
+import com.embytv.ui.components.PrimaryTvButton
 import com.embytv.ui.components.RemoteHint
+import com.embytv.ui.components.RoundIconButton
 import com.embytv.ui.components.TopChromeBar
 import com.embytv.ui.setup.SetupScreen
 import com.embytv.ui.theme.CinematicGlassColors
@@ -63,6 +72,9 @@ fun HomeScreen(
     } else {
         HomeDashboardScreen(
             state = state,
+            onOpenLibrary = viewModel::openLibrary,
+            onCloseLibrary = viewModel::closeLibrary,
+            onRetryLibrary = viewModel::retryLibrary,
             onPlay = { item ->
                 coroutineScope.launch {
                     viewModel.createPlaybackSource(item)?.let(onPlay)
@@ -75,6 +87,9 @@ fun HomeScreen(
 @Composable
 private fun HomeDashboardScreen(
     state: HomeUiState,
+    onOpenLibrary: (String) -> Unit,
+    onCloseLibrary: () -> Unit,
+    onRetryLibrary: () -> Unit,
     onPlay: (MediaItemSummary) -> Unit,
 ) {
     val dashboard = remember(state.dashboard) { HomeDashboardMapper.map(state.dashboard) }
@@ -114,7 +129,16 @@ private fun HomeDashboardScreen(
                     ),
                 ),
         )
-        LazyColumn(
+        if (state.libraryContent.isOpen) {
+            LibraryContentScreen(
+                state = state.libraryContent,
+                onBack = onCloseLibrary,
+                onRetry = onRetryLibrary,
+                onPlay = onPlay,
+                onUnsupported = { hintMessage = it },
+            )
+        } else {
+            LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
@@ -160,7 +184,7 @@ private fun HomeDashboardScreen(
                         LibraryCard(
                             library = library,
                             modifier = Modifier.fillParentMaxWidth(0.29f),
-                            onClick = { hintMessage = library.disabledReason },
+                            onClick = { onOpenLibrary(library.id) },
                             onUnsupported = { hintMessage = it },
                         )
                     }
@@ -200,6 +224,7 @@ private fun HomeDashboardScreen(
                 Box(modifier = Modifier.padding(bottom = 108.dp))
             }
         }
+        }
         MiniPlayerBar(modifier = Modifier.align(Alignment.BottomCenter))
         RemoteHint(
             message = hintMessage,
@@ -213,12 +238,152 @@ private fun HomeDashboardScreen(
             onClose = { drawerState = drawerState.close() },
             onItemClick = { item ->
                 if (item.enabled) {
+                    onOpenLibrary(item.id)
                     drawerState = drawerState.close()
                 }
             },
             onUnsupported = { hintMessage = it },
         )
     }
+}
+
+@Composable
+private fun LibraryContentScreen(
+    state: LibraryContentUiState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onPlay: (MediaItemSummary) -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    val backFocusRequester = remember { FocusRequester() }
+    BackHandler(enabled = true, onBack = onBack)
+    LaunchedEffect(state.selectedLibraryId) {
+        backFocusRequester.requestFocus()
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = CinematicGlassSpacing.SafeAreaX,
+                vertical = CinematicGlassSpacing.SafeAreaY,
+            ),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RoundIconButton(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "返回首页",
+                        onClick = onBack,
+                        modifier = Modifier.focusRequester(backFocusRequester),
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = state.content?.library?.name ?: "媒体库",
+                            color = CinematicGlassColors.OnSurface,
+                            fontSize = 34.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = state.statusLabel(),
+                            color = CinematicGlassColors.OnSurfaceVariant,
+                            fontSize = 14.sp,
+                        )
+                    }
+                }
+                if (state.errorMessage != null) {
+                    PrimaryTvButton(
+                        text = "重试",
+                        icon = Icons.Filled.Refresh,
+                        onClick = onRetry,
+                    )
+                }
+            }
+        }
+
+        when {
+            state.isLoading -> item { LibraryStatePanel(title = "正在加载媒体库", subtitle = "正在从 Emby 获取该媒体库的资源列表。") }
+            state.errorMessage != null -> item { LibraryStatePanel(title = "媒体库加载失败", subtitle = state.errorMessage) }
+            state.content?.items.isNullOrEmpty() -> item { LibraryStatePanel(title = "该媒体库暂无可展示资源", subtitle = "当前列表只展示电影和剧集资源。") }
+            else -> items(state.content.items.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
+                LibraryGridRow(
+                    items = rowItems,
+                    onPlay = onPlay,
+                    onUnsupported = onUnsupported,
+                )
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(108.dp))
+        }
+    }
+}
+
+@Composable
+private fun LibraryGridRow(
+    items: List<MediaItemSummary>,
+    onPlay: (MediaItemSummary) -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap),
+    ) {
+        items.forEach { item ->
+            val card = HomeDashboardMapper.mapMediaItem(item)
+            MediaPosterCard(
+                card = card,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    if (item.type.equals("Movie", ignoreCase = true) || item.type.equals("Episode", ignoreCase = true)) {
+                        onPlay(item)
+                    } else {
+                        onUnsupported("剧集详情暂未支持")
+                    }
+                },
+            )
+        }
+        repeat(5 - items.size) {
+            Spacer(modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun LibraryStatePanel(
+    title: String,
+    subtitle: String,
+) {
+    GlassPanel(modifier = Modifier.fillMaxWidth(), cornerRadius = 12.dp) {
+        Column(
+            modifier = Modifier.padding(28.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(text = title, color = CinematicGlassColors.OnSurface, fontSize = 22.sp)
+            Text(text = subtitle, color = CinematicGlassColors.OnSurfaceVariant, fontSize = 16.sp)
+        }
+    }
+}
+
+private fun LibraryContentUiState.statusLabel(): String {
+    if (isLoading) return "正在加载"
+    errorMessage?.let { return "加载失败" }
+    val content = content ?: return "等待加载"
+    val type = when (content.library.collectionType?.lowercase()) {
+        "movies" -> "电影"
+        "tvshows" -> "剧集"
+        else -> "资源"
+    }
+    return "${content.items.size} 个$type"
 }
 
 @Composable

@@ -1,6 +1,7 @@
 package com.embytv.ui.home
 
 import com.embytv.domain.model.EmbyHomeDashboard
+import com.embytv.domain.model.EmbyLibraryContent
 import com.embytv.domain.model.MediaItemSummary
 
 data class HomeNavigationItem(
@@ -26,6 +27,7 @@ data class MediaCardUiModel(
     val imageUrl: String?,
     val progressFraction: Float,
     val badge: String,
+    val cornerBadge: String? = null,
 )
 
 data class MediaSectionUiModel(
@@ -55,7 +57,20 @@ data class DrawerUiState(
     fun menuFocusRestored(): DrawerUiState = copy(restoreMenuFocus = false)
 }
 
+data class LibraryContentUiState(
+    val selectedLibraryId: String? = null,
+    val content: EmbyLibraryContent? = null,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+) {
+    val isOpen: Boolean = selectedLibraryId != null || content != null
+
+    fun close(): LibraryContentUiState = LibraryContentUiState()
+}
+
 object HomeDashboardMapper {
+    fun mapMediaItem(item: MediaItemSummary): MediaCardUiModel = item.toMediaCard()
+
     fun map(dashboard: EmbyHomeDashboard): HomeDashboardUiModel {
         val mediaItems = if (dashboard.resumeItems.isNotEmpty()) {
             dashboard.resumeItems
@@ -67,8 +82,8 @@ object HomeDashboardMapper {
                 HomeNavigationItem(
                     id = library.id,
                     title = library.name.ifBlank { library.collectionType ?: "媒体库" },
-                    enabled = false,
-                    disabledReason = "媒体库详情暂未支持",
+                    enabled = true,
+                    disabledReason = null,
                 )
             },
             libraries = dashboard.libraries.map { library ->
@@ -78,7 +93,7 @@ object HomeDashboardMapper {
                     countLabel = library.itemCount.toItemCountLabel(),
                     imageUrl = library.imageUrl,
                     enabled = true,
-                    disabledReason = "媒体库详情暂未支持",
+                    disabledReason = null,
                 )
             },
             continueWatching = mediaItems.take(12).map { item ->
@@ -110,6 +125,7 @@ object HomeDashboardMapper {
             imageUrl = preferredImageUrl(),
             progressFraction = progressFraction(),
             badge = type.ifBlank { "Media" },
+            cornerBadge = cornerBadge(),
         )
 
     private fun MediaItemSummary.displayTitle(): String = name.ifBlank { seriesName ?: id }
@@ -137,7 +153,18 @@ object HomeDashboardMapper {
     }
 
     private fun MediaItemSummary.preferredImageUrl(): String? =
-        thumbImageUrl ?: backdropImageUrl ?: imageUrl
+        if (type.equals("Episode", ignoreCase = true)) {
+            thumbImageUrl ?: backdropImageUrl ?: imageUrl
+        } else {
+            imageUrl ?: thumbImageUrl ?: backdropImageUrl
+        }
+
+    private fun MediaItemSummary.cornerBadge(): String? {
+        if (!type.equals("Series", ignoreCase = true)) return null
+        val count = unplayedItemCount ?: return null
+        if (count <= 0) return null
+        return "剩 $count 集"
+    }
 
     private fun MediaItemSummary.progressFraction(): Float {
         playedPercentage?.let { return (it / 100.0).toFloat().coerceIn(0f, 1f) }

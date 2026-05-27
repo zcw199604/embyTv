@@ -115,6 +115,7 @@ private class ReportingFakeEmbyApi : EmbyApi {
         parentId: String,
         recursive: Boolean,
         includeItemTypes: String,
+        startIndex: Int,
         limit: Int,
         sortBy: String?,
         sortOrder: String?,
@@ -133,7 +134,9 @@ private class ReportingFakeEmbyApi : EmbyApi {
     override suspend fun getLatestItems(
         authorization: String,
         userId: String,
+        parentId: String?,
         includeItemTypes: String,
+        groupItems: Boolean?,
         fields: String,
         limit: Int,
     ): List<EmbyItemDto> = error("Not used")

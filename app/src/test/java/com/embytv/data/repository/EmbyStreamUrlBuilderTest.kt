@@ -31,4 +31,26 @@ class EmbyStreamUrlBuilderTest {
             ) == null,
         )
     }
+
+    @Test
+    fun buildImageUrls_canUseUntaggedFallback() {
+        assertEquals(
+            "http://127.0.0.1:8096/Items/item/Images/Primary",
+            builder.buildPrimaryImageUrl(
+                serverUrl = "http://127.0.0.1:8096",
+                itemId = "item",
+                tag = null,
+                allowUntagged = true,
+            ),
+        )
+        assertEquals(
+            "http://127.0.0.1:8096/Items/item/Images/Backdrop/0",
+            builder.buildBackdropImageUrl(
+                serverUrl = "http://127.0.0.1:8096",
+                itemId = "item",
+                tag = null,
+                allowUntagged = true,
+            ),
+        )
+    }
 }

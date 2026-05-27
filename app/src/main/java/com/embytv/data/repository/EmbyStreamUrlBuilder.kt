@@ -20,22 +20,29 @@ class EmbyStreamUrlBuilder {
         serverUrl: String,
         itemId: String,
         tag: String?,
-    ): String? = buildImageUrl(serverUrl, itemId, "Primary", tag)
+        allowUntagged: Boolean = false,
+    ): String? = buildImageUrl(serverUrl, itemId, "Primary", tag, allowUntagged)
 
     fun buildThumbImageUrl(
         serverUrl: String,
         itemId: String,
         tag: String?,
-    ): String? = buildImageUrl(serverUrl, itemId, "Thumb", tag)
+        allowUntagged: Boolean = false,
+    ): String? = buildImageUrl(serverUrl, itemId, "Thumb", tag, allowUntagged)
 
     fun buildBackdropImageUrl(
         serverUrl: String,
         itemId: String,
         tag: String?,
+        allowUntagged: Boolean = false,
     ): String? {
-        if (tag.isNullOrBlank()) return null
         val base = serverUrl.trim().trimEnd('/')
-        return "$base/Items/${itemId.urlEncode()}/Images/Backdrop/0?tag=${tag.urlEncode()}"
+        val path = "$base/Items/${itemId.urlEncode()}/Images/Backdrop/0"
+        return when {
+            !tag.isNullOrBlank() -> "$path?tag=${tag.urlEncode()}"
+            allowUntagged -> path
+            else -> null
+        }
     }
 
     private fun buildImageUrl(
@@ -43,10 +50,15 @@ class EmbyStreamUrlBuilder {
         itemId: String,
         imageType: String,
         tag: String?,
+        allowUntagged: Boolean,
     ): String? {
-        if (tag.isNullOrBlank()) return null
         val base = serverUrl.trim().trimEnd('/')
-        return "$base/Items/${itemId.urlEncode()}/Images/$imageType?tag=${tag.urlEncode()}"
+        val path = "$base/Items/${itemId.urlEncode()}/Images/$imageType"
+        return when {
+            !tag.isNullOrBlank() -> "$path?tag=${tag.urlEncode()}"
+            allowUntagged -> path
+            else -> null
+        }
     }
 }
 

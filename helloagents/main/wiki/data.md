@@ -28,11 +28,12 @@
 |------|------|------|
 | id | String | Emby 条目 ID |
 | name | String | 标题 |
-| type | String | Movie 或 Episode |
+| type | String | Movie、Episode 或 Series |
 | overview | String? | 简介 |
 | imageUrl | String? | 主图地址 |
 | thumbImageUrl | String? | Thumb 缩略图地址 |
 | backdropImageUrl | String? | Backdrop 背景图地址 |
+| seriesId | String? | 剧集 ID，Episode 聚合为 Series 时使用 |
 | seriesName | String? | 剧集所属剧名 |
 | seasonName | String? | 季名称 |
 | parentIndexNumber | Int? | 季序号 |
@@ -42,6 +43,10 @@
 | playbackPositionTicks | Long | 当前播放位置 ticks |
 | playedPercentage | Double? | Emby 已播放百分比 |
 | productionYear | Int? | 制作年份 |
+| unplayedItemCount | Int? | 剩余未播放集数，Series 卡片角标来源 |
+| childCount | Int? | 子条目数量 |
+| recursiveItemCount | Int? | 递归子条目数量 |
+| dateCreated | String? | 入库时间，用于最新资源排序兜底 |
 
 ### EmbyLibrarySummary
 | 字段 | 类型 | 来源 | 说明 |
@@ -51,13 +56,19 @@
 | collectionType | String? | `Views.Items[].CollectionType` | movies/tvshows 等 |
 | type | String | `Views.Items[].Type` | CollectionFolder/Channel |
 | itemCount | Int | `Users/{userId}/Items?ParentId=...` 的 `TotalRecordCount` | 视频数量 |
-| imageUrl | String? | `Views.Items[].ImageTags.Primary` | 媒体库封面 |
+| imageUrl | String? | `ImageTags.Primary` 或 `PrimaryImageTag` | 媒体库封面；缺 tag 时允许使用无 tag 图片端点兜底 |
 
 ### EmbyLibraryLatestSection
 | 字段 | 类型 | 来源 | 说明 |
 |------|------|------|------|
 | library | EmbyLibrarySummary | `Users/{userId}/Views` | 当前分区所属媒体库 |
-| items | List<MediaItemSummary> | `Users/{userId}/Items?ParentId=...&SortBy=DateCreated&SortOrder=Descending&Limit=8` | 媒体库最新资源 |
+| items | List<MediaItemSummary> | `Users/{userId}/Items/Latest?ParentId=...&Limit=8` | 媒体库最新资源；tvshows 聚合为 Series |
+
+### EmbyLibraryContent
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| library | EmbyLibrarySummary | `Users/{userId}/Views` | 当前媒体库 |
+| items | List<MediaItemSummary> | `Users/{userId}/Items?ParentId=...&StartIndex=0&Limit=60` | 媒体库首屏资源列表；movies 为 Movie，tvshows 为 Series |
 
 ### EmbyHomeDashboard
 | 字段 | 类型 | 来源 | 说明 |

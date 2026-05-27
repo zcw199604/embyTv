@@ -1,8 +1,7 @@
 package com.embytv.ui.home
 
-import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.EmbyHomeDashboard
-import com.embytv.domain.model.MediaItemSummary
+import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.ServerConfigDraft
 
 data class HomeUiState(
@@ -12,6 +11,7 @@ data class HomeUiState(
     val errorMessage: String? = null,
     val session: EmbySession? = null,
     val dashboard: EmbyHomeDashboard = EmbyHomeDashboard(),
+    val libraryContent: LibraryContentUiState = LibraryContentUiState(),
 )
 
 data class MobileSetupSyncUiState(

@@ -8,6 +8,7 @@ data class MediaItemSummary(
     val imageUrl: String?,
     val thumbImageUrl: String? = null,
     val backdropImageUrl: String? = null,
+    val seriesId: String? = null,
     val seriesName: String? = null,
     val seasonName: String? = null,
     val parentIndexNumber: Int? = null,
@@ -17,6 +18,10 @@ data class MediaItemSummary(
     val playbackPositionTicks: Long = 0L,
     val playedPercentage: Double? = null,
     val productionYear: Int? = null,
+    val unplayedItemCount: Int? = null,
+    val childCount: Int? = null,
+    val recursiveItemCount: Int? = null,
+    val dateCreated: String? = null,
 )
 
 data class EmbyLibrarySummary(
@@ -29,6 +34,11 @@ data class EmbyLibrarySummary(
 )
 
 data class EmbyLibraryLatestSection(
+    val library: EmbyLibrarySummary,
+    val items: List<MediaItemSummary>,
+)
+
+data class EmbyLibraryContent(
     val library: EmbyLibrarySummary,
     val items: List<MediaItemSummary>,
 )

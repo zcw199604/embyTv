@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.embytv.core.network.MobileSetupSyncServer
 import com.embytv.data.repository.EmbyRepository
 import com.embytv.domain.model.EmbySession
+import com.embytv.domain.model.EmbyLibrarySummary
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.PlaybackSource
 import com.embytv.domain.model.ServerConfigDraft
@@ -87,6 +88,25 @@ class HomeViewModel(
                 _uiState.update { it.copy(errorMessage = error.message ?: "播放信息加载失败") }
                 null
             }
+    }
+
+    fun openLibrary(libraryId: String) {
+        val session = _uiState.value.session ?: return
+        val library = _uiState.value.dashboard.libraries.firstOrNull { it.id == libraryId } ?: return
+        loadLibraryContent(session, library)
+    }
+
+    fun closeLibrary() {
+        _uiState.update { it.copy(libraryContent = it.libraryContent.close(), errorMessage = null) }
+    }
+
+    fun retryLibrary() {
+        val state = _uiState.value
+        val session = state.session ?: return
+        val library = state.libraryContent.content?.library
+            ?: state.dashboard.libraries.firstOrNull { it.id == state.libraryContent.selectedLibraryId }
+            ?: return
+        loadLibraryContent(session, library)
     }
 
     override fun onCleared() {
@@ -180,6 +200,7 @@ class HomeViewModel(
                         isLoading = false,
                         session = session,
                         dashboard = dashboard,
+                        libraryContent = it.libraryContent.close(),
                     )
                 }
             }
@@ -193,6 +214,47 @@ class HomeViewModel(
                 }
             }
             .map { Unit }
+    }
+
+    private fun loadLibraryContent(session: EmbySession, library: EmbyLibrarySummary) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    libraryContent = LibraryContentUiState(
+                        selectedLibraryId = library.id,
+                        content = null,
+                        isLoading = true,
+                        errorMessage = null,
+                    ),
+                    errorMessage = null,
+                )
+            }
+            repository.loadLibraryContent(session, deviceId, library)
+                .onSuccess { content ->
+                    _uiState.update {
+                        it.copy(
+                            libraryContent = LibraryContentUiState(
+                                selectedLibraryId = content.library.id,
+                                content = content,
+                                isLoading = false,
+                                errorMessage = null,
+                            ),
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            libraryContent = LibraryContentUiState(
+                                selectedLibraryId = library.id,
+                                content = null,
+                                isLoading = false,
+                                errorMessage = error.message ?: "媒体库加载失败",
+                            ),
+                        )
+                    }
+                }
+        }
     }
 
     class Factory(

@@ -18,18 +18,27 @@ data class EmbyItemDto(
     @SerializedName("Type") val type: String?,
     @SerializedName("CollectionType") val collectionType: String? = null,
     @SerializedName("ChildCount") val childCount: Int? = null,
+    @SerializedName("RecursiveItemCount") val recursiveItemCount: Int? = null,
     @SerializedName("Overview") val overview: String?,
+    @SerializedName("PrimaryImageTag") val primaryImageTag: String? = null,
     @SerializedName("ImageTags") val imageTags: Map<String, String>?,
     @SerializedName("BackdropImageTags") val backdropImageTags: List<String> = emptyList(),
+    @SerializedName("ParentThumbItemId") val parentThumbItemId: String? = null,
+    @SerializedName("ParentThumbImageTag") val parentThumbImageTag: String? = null,
+    @SerializedName("ParentBackdropItemId") val parentBackdropItemId: String? = null,
+    @SerializedName("ParentBackdropImageTags") val parentBackdropImageTags: List<String> = emptyList(),
     @SerializedName("UserData") val userData: EmbyUserDataDto? = null,
     @SerializedName("RunTimeTicks") val runTimeTicks: Long? = null,
     @SerializedName("MediaSources") val mediaSources: List<EmbyMediaSourceDto> = emptyList(),
     @SerializedName("ParentId") val parentId: String? = null,
+    @SerializedName("SeriesId") val seriesId: String? = null,
     @SerializedName("SeriesName") val seriesName: String? = null,
+    @SerializedName("SeriesPrimaryImageTag") val seriesPrimaryImageTag: String? = null,
     @SerializedName("SeasonName") val seasonName: String? = null,
     @SerializedName("ParentIndexNumber") val parentIndexNumber: Int? = null,
     @SerializedName("IndexNumber") val indexNumber: Int? = null,
     @SerializedName("ProductionYear") val productionYear: Int? = null,
+    @SerializedName("DateCreated") val dateCreated: String? = null,
 )
 
 data class EmbyUserDataDto(
@@ -38,6 +47,7 @@ data class EmbyUserDataDto(
     @SerializedName("PlayCount") val playCount: Int? = null,
     @SerializedName("Played") val played: Boolean = false,
     @SerializedName("IsFavorite") val isFavorite: Boolean = false,
+    @SerializedName("UnplayedItemCount") val unplayedItemCount: Int? = null,
 )
 
 data class EmbyPlaybackInfoResponse(

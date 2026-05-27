@@ -47,7 +47,7 @@
 | IncludeItemTypes | string | 是 | 当前为 Movie,Episode |
 | Fields | string | 是 | Overview,PrimaryImageAspectRatio,ImageTags |
 
-**真实接口探测:** 2026-05-27 使用测试服务器验证通过。`Fields` 可扩展为 `Overview,PrimaryImageAspectRatio,ImageTags,BackdropImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesName,SeasonName,IndexNumber,ParentIndexNumber`，可支撑媒体卡片、进度、年份、剧集上下文和播放页标题信息。
+**真实接口探测:** 2026-05-27 使用测试服务器验证通过。`Fields` 已扩展为包含 `PrimaryImageTag`、`ParentThumbItemId`、`ParentThumbImageTag`、`ParentBackdropItemId`、`ParentBackdropImageTags`、`SeriesId`、`SeriesPrimaryImageTag`、`RecursiveItemCount`、`ChildCount`、`DateCreated` 和 `UserData` 等字段，可支撑封面兜底、剧集聚合、未播放集数和播放页标题信息。
 
 ### 媒体库视图
 
@@ -65,21 +65,22 @@
 
 **落地实现:** 首页逐个 View 查询 `TotalRecordCount`，只取计数，不把该接口作为列表数据源。
 
-#### GET Users/{userId}/Items?ParentId={viewId}&Recursive=true&IncludeItemTypes=Movie,Episode&Limit=8&SortBy=DateCreated&SortOrder=Descending
-**描述:** 按媒体库获取最近入库的少量媒体资源，用于首页在继续观看下方展示每个媒体库的最新内容。
+#### GET Users/{userId}/Items?ParentId={viewId}&Recursive=true&IncludeItemTypes={types}&StartIndex=0&Limit=60&SortBy=SortName&SortOrder=Ascending
+**描述:** 进入媒体库后获取首屏资源列表。
 
 **请求参数:**
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | ParentId | string | 是 | 媒体库 View ID |
 | Recursive | boolean | 是 | 当前固定为 true |
-| IncludeItemTypes | string | 是 | 当前为 Movie,Episode |
-| Limit | int | 是 | 当前固定为 8，避免首页全量拉取 |
-| SortBy | string | 是 | 当前为 DateCreated |
-| SortOrder | string | 是 | 当前为 Descending |
-| Fields | string | 是 | 包含 ImageTags、BackdropImageTags、UserData、RunTimeTicks、ParentId、SeriesName、SeasonName、IndexNumber、ParentIndexNumber 等 |
+| IncludeItemTypes | string | 是 | movies 使用 Movie，tvshows 使用 Series，未知库使用 Movie,Series |
+| StartIndex | int | 是 | 当前固定为 0 |
+| Limit | int | 是 | 当前固定为 60，分页后续规划 |
+| SortBy | string | 是 | 当前为 SortName |
+| SortOrder | string | 是 | 当前为 Ascending |
+| Fields | string | 是 | 包含图片、剧集、播放进度和未播放计数字段 |
 
-**落地实现:** `EmbyRepository.loadHomeDashboard()` 会对已返回的每个媒体库请求固定 8 条最新资源，空结果不生成首页 section。
+**落地实现:** `EmbyRepository.loadLibraryContent()` 返回 `EmbyLibraryContent`，供 `LibraryContentScreen` 展示资源列表。
 
 ### 继续观看
 
@@ -106,6 +107,20 @@
 
 **落地实现:** 当继续观看为空时，首页媒体横排显示最近入库条目，标题改为“最近入库”。
 
+#### GET Users/{userId}/Items/Latest?ParentId={viewId}&IncludeItemTypes={types}&GroupItems={bool}&Limit=8
+**描述:** 按媒体库获取首页横排最新入库资源。
+
+**请求参数:**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| ParentId | string | 是 | 媒体库 View ID |
+| IncludeItemTypes | string | 是 | movies 使用 Movie，tvshows 使用 Episode |
+| GroupItems | boolean | 否 | tvshows 固定 true，让 Episode 按 Series 聚合 |
+| Limit | int | 是 | 当前固定为 8 |
+| Fields | string | 是 | 包含图片、剧集、未播放计数和日期字段 |
+
+**落地实现:** `EmbyRepository.loadHomeDashboard()` 对 movies 直接映射 Movie；对 tvshows 请求 `GroupItems=true`，若返回仍是 Episode，则按 `SeriesId/SeriesName` 本地聚合为 Series 卡片。
+
 ### 图片资源
 
 #### GET Items/{itemId}/Images/{imageType}?tag={tag}
@@ -118,7 +133,7 @@
 | Thumb | `ImageTags.Thumb` | 继续观看和最新资源缩略图优先来源 |
 | Backdrop | `BackdropImageTags[0]` | 缩略图缺失时的背景图兜底 |
 
-**落地实现:** 媒体卡片图片优先级为 `Thumb -> Backdrop -> Primary`；没有真实图片 tag 时显示本地占位，不拼接假图。
+**落地实现:** 图片兜底顺序覆盖 `ImageTags.Primary`、`PrimaryImageTag`、`ImageTags.Thumb`、`BackdropImageTags[0]`、`ParentThumbItemId + ParentThumbImageTag`、`ParentBackdropItemId + ParentBackdropImageTags[0]`、`SeriesId + SeriesPrimaryImageTag`。当只有 item id 而没有 tag 时，允许构造 `/Items/{itemId}/Images/{type}` 或 `/Items/{itemId}/Images/Backdrop/0` 作为 Emby 图片端点兜底；仍缺失时显示本地占位。
 
 ### 剧集下一集
 

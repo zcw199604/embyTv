@@ -10,6 +10,7 @@ import com.embytv.data.remote.dto.EmbyPlaybackStartRequest
 import com.embytv.data.remote.dto.EmbyPlaybackStoppedRequest
 import com.embytv.domain.model.EmbyCredentialStore
 import com.embytv.domain.model.EmbyHomeDashboard
+import com.embytv.domain.model.EmbyLibraryContent
 import com.embytv.domain.model.EmbyLibrarySummary
 import com.embytv.domain.model.EmbyLibraryLatestSection
 import com.embytv.domain.model.EmbySession
@@ -111,7 +112,12 @@ class EmbyRepository(
                         imageUrl = streamUrlBuilder.buildPrimaryImageUrl(
                             serverUrl = session.serverUrl,
                             itemId = id,
-                            tag = view.imageTags?.get("Primary"),
+                            tag = view.primaryTag(),
+                        ) ?: streamUrlBuilder.buildPrimaryImageUrl(
+                            serverUrl = session.serverUrl,
+                            itemId = id,
+                            tag = null,
+                            allowUntagged = true,
                         ),
                     )
                 }
@@ -124,14 +130,13 @@ class EmbyRepository(
                     userId = session.userId,
                 ).mapNotNull { it.toMediaItemSummary(session.serverUrl) }
                 val libraryLatestSections = libraries.mapNotNull { library ->
-                    val items = api.getItemsByParent(
+                    val items = loadLatestItemsForLibrary(
+                        api = api,
                         authorization = authorization,
                         userId = session.userId,
-                        parentId = library.id,
-                        limit = LIBRARY_LATEST_LIMIT,
-                        sortBy = "DateCreated",
-                        sortOrder = "Descending",
-                    ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                        serverUrl = session.serverUrl,
+                        library = library,
+                    )
                     if (items.isEmpty()) {
                         null
                     } else {
@@ -147,6 +152,28 @@ class EmbyRepository(
                 )
             }
         }
+
+    suspend fun loadLibraryContent(
+        session: EmbySession,
+        deviceId: String,
+        library: EmbyLibrarySummary,
+        limit: Int = LIBRARY_CONTENT_LIMIT,
+    ): Result<EmbyLibraryContent> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val items = api.getItemsByParent(
+                authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                userId = session.userId,
+                parentId = library.id,
+                includeItemTypes = library.libraryContentTypes(),
+                startIndex = 0,
+                limit = limit,
+                sortBy = "SortName",
+                sortOrder = "Ascending",
+            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+            EmbyLibraryContent(library = library, items = items)
+        }
+    }
 
     fun createPlaybackSource(session: EmbySession, item: MediaItemSummary): PlaybackSource =
         PlaybackSource(
@@ -268,21 +295,9 @@ class EmbyRepository(
             name = name.orEmpty(),
             type = type.orEmpty(),
             overview = overview,
-            imageUrl = streamUrlBuilder.buildPrimaryImageUrl(
-                serverUrl = serverUrl,
-                itemId = id,
-                tag = imageTags?.get("Primary"),
-            ),
-            thumbImageUrl = streamUrlBuilder.buildThumbImageUrl(
-                serverUrl = serverUrl,
-                itemId = id,
-                tag = imageTags?.get("Thumb"),
-            ),
-            backdropImageUrl = streamUrlBuilder.buildBackdropImageUrl(
-                serverUrl = serverUrl,
-                itemId = id,
-                tag = backdropImageTags.firstOrNull(),
-            ),
+            imageUrl = primaryImageUrl(serverUrl),
+            thumbImageUrl = thumbImageUrl(serverUrl),
+            backdropImageUrl = backdropImageUrl(serverUrl),
             seriesName = seriesName,
             seasonName = seasonName,
             parentIndexNumber = parentIndexNumber,
@@ -292,7 +307,167 @@ class EmbyRepository(
             playbackPositionTicks = userData?.playbackPositionTicks ?: 0L,
             playedPercentage = userData?.playedPercentage,
             productionYear = productionYear,
+            seriesId = seriesId,
+            unplayedItemCount = userData?.unplayedItemCount,
+            childCount = childCount,
+            recursiveItemCount = recursiveItemCount,
+            dateCreated = dateCreated,
         )
+    }
+
+    private suspend fun loadLatestItemsForLibrary(
+        api: com.embytv.data.remote.EmbyApi,
+        authorization: String,
+        userId: String,
+        serverUrl: String,
+        library: EmbyLibrarySummary,
+    ): List<MediaItemSummary> {
+        val raw = api.getLatestItems(
+            authorization = authorization,
+            userId = userId,
+            parentId = library.id,
+            includeItemTypes = library.latestItemTypes(),
+            groupItems = library.latestGroupItems(),
+            limit = LIBRARY_LATEST_LIMIT,
+        )
+        return if (library.isTvShows()) {
+            raw.toSeriesSummaries(serverUrl).ifEmpty {
+                raw.mapNotNull { it.toMediaItemSummary(serverUrl) }
+            }
+        } else {
+            raw.mapNotNull { it.toMediaItemSummary(serverUrl) }
+        }
+    }
+
+    private fun List<EmbyItemDto>.toSeriesSummaries(serverUrl: String): List<MediaItemSummary> {
+        val episodes = filter { item ->
+            item.type.equals("Episode", ignoreCase = true) &&
+                (!item.seriesId.isNullOrBlank() || !item.seriesName.isNullOrBlank())
+        }
+        if (episodes.isEmpty()) return emptyList()
+        return episodes
+            .groupBy { item -> item.seriesId?.takeIf { it.isNotBlank() } ?: item.seriesName.orEmpty() }
+            .values
+            .mapNotNull { group ->
+                val seed = group.firstOrNull() ?: return@mapNotNull null
+                val seriesId = seed.seriesId?.takeIf { it.isNotBlank() } ?: seed.id ?: return@mapNotNull null
+                val seriesName = seed.seriesName?.takeIf { it.isNotBlank() } ?: seed.name.orEmpty()
+                MediaItemSummary(
+                    id = seriesId,
+                    name = seriesName,
+                    type = "Series",
+                    overview = seed.overview,
+                    imageUrl = streamUrlBuilder.buildPrimaryImageUrl(
+                        serverUrl = serverUrl,
+                        itemId = seriesId,
+                        tag = seed.seriesPrimaryImageTag,
+                        allowUntagged = true,
+                    ),
+                    thumbImageUrl = seed.thumbImageUrl(serverUrl),
+                    backdropImageUrl = seed.backdropImageUrl(serverUrl),
+                    seriesId = seriesId,
+                    seriesName = seriesName,
+                    runTimeTicks = null,
+                    playbackPositionTicks = 0L,
+                    playedPercentage = null,
+                    productionYear = seed.productionYear,
+                    unplayedItemCount = group.mapNotNull { it.userData?.unplayedItemCount }.maxOrNull(),
+                    childCount = group.mapNotNull { it.childCount }.maxOrNull(),
+                    recursiveItemCount = group.mapNotNull { it.recursiveItemCount }.maxOrNull(),
+                    dateCreated = group.mapNotNull { it.dateCreated }.maxOrNull(),
+                )
+            }
+    }
+
+    private fun EmbyItemDto.primaryImageUrl(serverUrl: String): String? {
+        val id = id ?: return null
+        return streamUrlBuilder.buildPrimaryImageUrl(
+            serverUrl = serverUrl,
+            itemId = id,
+            tag = primaryTag(),
+        ) ?: seriesPrimaryImageUrl(serverUrl)
+            ?: streamUrlBuilder.buildPrimaryImageUrl(
+                serverUrl = serverUrl,
+                itemId = id,
+                tag = null,
+                allowUntagged = true,
+            )
+    }
+
+    private fun EmbyItemDto.seriesPrimaryImageUrl(serverUrl: String): String? {
+        val itemId = seriesId?.takeIf { it.isNotBlank() } ?: return null
+        return streamUrlBuilder.buildPrimaryImageUrl(
+            serverUrl = serverUrl,
+            itemId = itemId,
+            tag = seriesPrimaryImageTag,
+            allowUntagged = !seriesPrimaryImageTag.isNullOrBlank(),
+        )
+    }
+
+    private fun EmbyItemDto.thumbImageUrl(serverUrl: String): String? {
+        val id = id ?: return null
+        return streamUrlBuilder.buildThumbImageUrl(
+            serverUrl = serverUrl,
+            itemId = id,
+            tag = imageTags?.get("Thumb"),
+        ) ?: parentThumbItemId?.takeIf { it.isNotBlank() }?.let { parentId ->
+            streamUrlBuilder.buildThumbImageUrl(
+                serverUrl = serverUrl,
+                itemId = parentId,
+                tag = parentThumbImageTag,
+                allowUntagged = !parentThumbImageTag.isNullOrBlank(),
+            )
+        } ?: streamUrlBuilder.buildThumbImageUrl(
+            serverUrl = serverUrl,
+            itemId = id,
+            tag = null,
+            allowUntagged = true,
+        )
+    }
+
+    private fun EmbyItemDto.backdropImageUrl(serverUrl: String): String? {
+        val id = id ?: return null
+        return streamUrlBuilder.buildBackdropImageUrl(
+            serverUrl = serverUrl,
+            itemId = id,
+            tag = backdropImageTags.firstOrNull(),
+        ) ?: parentBackdropItemId?.takeIf { it.isNotBlank() }?.let { parentId ->
+            streamUrlBuilder.buildBackdropImageUrl(
+                serverUrl = serverUrl,
+                itemId = parentId,
+                tag = parentBackdropImageTags.firstOrNull(),
+                allowUntagged = parentBackdropImageTags.isNotEmpty(),
+            )
+        } ?: streamUrlBuilder.buildBackdropImageUrl(
+            serverUrl = serverUrl,
+            itemId = id,
+            tag = null,
+            allowUntagged = true,
+        )
+    }
+
+    private fun EmbyItemDto.primaryTag(): String? =
+        imageTags?.get("Primary") ?: primaryImageTag
+
+    private fun EmbyLibrarySummary.isTvShows(): Boolean =
+        collectionType.equals("tvshows", ignoreCase = true)
+
+    private fun EmbyLibrarySummary.isMovies(): Boolean =
+        collectionType.equals("movies", ignoreCase = true)
+
+    private fun EmbyLibrarySummary.latestItemTypes(): String = when {
+        isTvShows() -> "Episode"
+        isMovies() -> "Movie"
+        else -> "Movie,Series"
+    }
+
+    private fun EmbyLibrarySummary.latestGroupItems(): Boolean? =
+        if (isTvShows()) true else null
+
+    private fun EmbyLibrarySummary.libraryContentTypes(): String = when {
+        isTvShows() -> "Series"
+        isMovies() -> "Movie"
+        else -> "Movie,Series"
     }
 
     private fun EmbyMediaSourceDto.videoStream(): EmbyMediaStreamDto? =
@@ -325,6 +500,7 @@ class EmbyRepository(
 
     private companion object {
         const val LIBRARY_LATEST_LIMIT = 8
+        const val LIBRARY_CONTENT_LIMIT = 60
     }
 }
 

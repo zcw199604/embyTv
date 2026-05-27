@@ -26,7 +26,20 @@ Emby 返回用户 ID 和访问令牌后：
 - 按媒体库调用 `Users/{userId}/Items?ParentId=...&Limit=0` 读取真实视频数量。
 - 调用 `Users/{userId}/Items/Resume` 读取继续观看。
 - 调用 `Users/{userId}/Items/Latest` 作为继续观看为空时的最近入库兜底。
+- 按媒体库调用 `Users/{userId}/Items/Latest?ParentId=...&Limit=8` 读取首页横排最新资源；tvshows 使用 `IncludeItemTypes=Episode&GroupItems=true` 并兜底聚合为 Series。
 - 不在首页首屏全量拉取全部 Movie/Episode。
+
+#### 场景: 媒体库资源列表
+用户进入媒体库后：
+- 调用 `Users/{userId}/Items?ParentId=...&StartIndex=0&Limit=60` 获取首屏资源。
+- movies 使用 `IncludeItemTypes=Movie`，tvshows 使用 `IncludeItemTypes=Series`，未知库使用 `Movie,Series`。
+- 不做全库 Episode 扫描计算剩余集数，优先使用 Emby 返回的 `UserData.UnplayedItemCount`。
+
+#### 场景: 图片兜底
+展示媒体库或媒体卡片时：
+- 优先使用当前条目的 `ImageTags.Primary`、`PrimaryImageTag`、`ImageTags.Thumb` 和 `BackdropImageTags`。
+- 当前条目缺图时使用 `ParentThumbItemId`、`ParentBackdropItemId`、`SeriesId` 与对应 image tag 构造父级图片 URL。
+- 只有 item id 而没有 tag 时允许使用 Emby 无 tag 图片端点兜底；仍缺图则由 UI 展示占位。
 
 #### 场景: 播放详情
 选择媒体后：
@@ -50,6 +63,7 @@ Emby 返回用户 ID 和访问令牌后：
 - domain
 
 ## 变更历史
+- [202605272217_library_browse_series_grouping](../../history/2026-05/202605272217_library_browse_series_grouping/) - 增加图片字段兜底、媒体库资源列表查询和 tvshows Series 聚合。
 - [202605271602_emby_real_data_replacement](../../history/2026-05/202605271602_emby_real_data_replacement/) - 首页和播放器可见数据替换为 Emby 真实 API 数据。
 - [202605271514_emby_server_mobile_sync](../../history/2026-05/202605271514_emby_server_mobile_sync/) - 保存 Emby token 凭证和用户名展示字段，不保存密码。
 - [202605201342_emby_tv_init](../../history/2026-05/202605201342_emby_tv_init/) - 初始化 Emby API 与 Repository。

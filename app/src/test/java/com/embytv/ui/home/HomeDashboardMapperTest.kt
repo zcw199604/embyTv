@@ -49,6 +49,8 @@ class HomeDashboardMapperTest {
         assertEquals("电影", dashboard.libraries.first().title)
         assertEquals("1001 items", dashboard.libraries.first().countLabel)
         assertEquals("https://example.test/library.jpg", dashboard.libraries.first().imageUrl)
+        assertTrue(dashboard.libraries.first().enabled)
+        assertEquals(null, dashboard.libraries.first().disabledReason)
         assertEquals(1, dashboard.continueWatching.size)
         assertEquals("第 1 集", dashboard.continueWatching.first().title)
         assertEquals("真实剧集 · S01E01", dashboard.continueWatching.first().subtitle)
@@ -108,6 +110,62 @@ class HomeDashboardMapperTest {
     }
 
     @Test
+    fun mapsSeriesCardsWithPosterAndUnplayedCornerBadge() {
+        val dashboard = HomeDashboardMapper.map(
+            EmbyHomeDashboard(
+                libraries = listOf(
+                    EmbyLibrarySummary(
+                        id = "library-1",
+                        name = "电视剧",
+                        type = "CollectionFolder",
+                        collectionType = "tvshows",
+                        itemCount = 88,
+                        imageUrl = "https://example.test/library.jpg",
+                    ),
+                ),
+                libraryLatestSections = listOf(
+                    EmbyLibraryLatestSection(
+                        library = EmbyLibrarySummary(
+                            id = "library-1",
+                            name = "电视剧",
+                            type = "CollectionFolder",
+                            collectionType = "tvshows",
+                            itemCount = 88,
+                            imageUrl = "https://example.test/library.jpg",
+                        ),
+                        items = listOf(
+                            MediaItemSummary(
+                                id = "series-1",
+                                name = "真实剧集",
+                                type = "Series",
+                                overview = "剧集简介",
+                                imageUrl = "https://example.test/series.jpg",
+                                unplayedItemCount = 3,
+                                productionYear = 2026,
+                            ),
+                            MediaItemSummary(
+                                id = "movie-1",
+                                name = "真实电影",
+                                type = "Movie",
+                                overview = null,
+                                imageUrl = "https://example.test/movie.jpg",
+                                unplayedItemCount = 1,
+                                productionYear = 2026,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val cards = dashboard.libraryLatestSections.single().items
+        assertEquals("真实剧集", cards[0].title)
+        assertEquals("https://example.test/series.jpg", cards[0].imageUrl)
+        assertEquals("剩 3 集", cards[0].cornerBadge)
+        assertEquals(null, cards[1].cornerBadge)
+    }
+
+    @Test
     fun fallsBackToLatestWhenResumeIsEmpty() {
         val dashboard = HomeDashboardMapper.map(
             EmbyHomeDashboard(
@@ -148,5 +206,21 @@ class HomeDashboardMapperTest {
 
         assertFalse(closed.isOpen)
         assertTrue(closed.restoreMenuFocus)
+    }
+
+    @Test
+    fun closesLibraryContentOnBackWhenOpen() {
+        val state = LibraryContentUiState(
+            selectedLibraryId = "library-1",
+            content = null,
+            isLoading = true,
+            errorMessage = null,
+        )
+
+        val closed = state.close()
+
+        assertEquals(null, closed.selectedLibraryId)
+        assertFalse(closed.isLoading)
+        assertEquals(null, closed.errorMessage)
     }
 }

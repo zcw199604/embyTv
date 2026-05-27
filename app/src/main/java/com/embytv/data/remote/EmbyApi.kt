@@ -44,6 +44,7 @@ interface EmbyApi {
         @Query("ParentId") parentId: String,
         @Query("Recursive") recursive: Boolean = true,
         @Query("IncludeItemTypes") includeItemTypes: String = "Movie,Episode",
+        @Query("StartIndex") startIndex: Int = 0,
         @Query("Limit") limit: Int = 0,
         @Query("SortBy") sortBy: String? = null,
         @Query("SortOrder") sortOrder: String? = null,
@@ -64,7 +65,9 @@ interface EmbyApi {
     suspend fun getLatestItems(
         @Header("X-Emby-Authorization") authorization: String,
         @Path("userId") userId: String,
+        @Query("ParentId") parentId: String? = null,
         @Query("IncludeItemTypes") includeItemTypes: String = "Movie,Episode",
+        @Query("GroupItems") groupItems: Boolean? = null,
         @Query("Fields") fields: String = MEDIA_ITEM_FIELDS,
         @Query("Limit") limit: Int = 24,
     ): List<com.embytv.data.remote.dto.EmbyItemDto>
@@ -96,6 +99,6 @@ interface EmbyApi {
 
     companion object {
         const val MEDIA_ITEM_FIELDS =
-            "Overview,PrimaryImageAspectRatio,ImageTags,BackdropImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesName,SeasonName,IndexNumber,ParentIndexNumber"
+            "Overview,PrimaryImageAspectRatio,PrimaryImageTag,ImageTags,BackdropImageTags,ParentThumbItemId,ParentThumbImageTag,ParentBackdropItemId,ParentBackdropImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,SeasonName,IndexNumber,ParentIndexNumber,RecursiveItemCount,ChildCount"
     }
 }

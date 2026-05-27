@@ -197,6 +197,25 @@ fun MediaPosterCard(
                     contentDescription = card.title,
                     modifier = Modifier.fillMaxSize(),
                 )
+                card.cornerBadge?.takeIf { it.isNotBlank() }?.let { cornerBadge ->
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(CinematicGlassColors.Secondary.copy(alpha = 0.88f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = cornerBadge,
+                            color = Color.Black,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)

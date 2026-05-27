@@ -67,9 +67,19 @@ Emby 登录成功后：
 - 继续观看来自 `Users/{userId}/Items/Resume`，进度来自 `UserData.PlayedPercentage` 或 `PlaybackPositionTicks / RunTimeTicks`。
 - 继续观看卡片优先展示 `ImageTags.Thumb` 缩略图，缺失时按 `BackdropImageTags`、`ImageTags.Primary` 兜底；Episode 副标题展示真实剧名和 `SxxExx`。
 - 继续观看为空时展示 `Users/{userId}/Items/Latest` 的最近入库条目。
-- 继续观看下方按每个媒体库展示最新资源横排，数据来自 `Users/{userId}/Items?ParentId=...&SortBy=DateCreated&SortOrder=Descending&Limit=8`。
-- 媒体卡片通过 Coil Compose 加载 `MediaItemSummary.thumbImageUrl`、`backdropImageUrl` 或 `imageUrl`。
+- 继续观看下方按每个媒体库展示最新资源横排，数据来自 `Users/{userId}/Items/Latest?ParentId=...&Limit=8`；电影库按 Movie 展示，剧集库按 Series 维度展示。
+- 剧集库最新资源如果 Emby 仍返回 Episode，Repository 会按 `SeriesId/SeriesName` 聚合为 Series 卡片。
+- Series 卡片在 `unplayedItemCount > 0` 时显示“剩 n 集”角标；Movie 不显示剩余集数角标。
+- 媒体卡片通过 Coil Compose 加载 `MediaItemSummary.imageUrl`、`thumbImageUrl` 或 `backdropImageUrl`，并支持 Emby 父级图片字段兜底。
 - 首页不再展示本地硬编码 Movies、TV Shows、Anime 卡片、假进度或样例播放入口。
+
+#### 场景: 媒体库资源列表
+用户在首页或抽屉对媒体库按 OK/Enter 后：
+- 进入 `LibraryContentScreen`，顶部展示返回按钮、媒体库名称和资源数量。
+- 电影库列表展示 Movie，剧集库列表展示 Series，未知库优先展示 Movie/Series。
+- 列表页提供加载、空状态、错误状态和遥控器可聚焦的重试按钮。
+- Back 或顶部返回按钮返回首页。
+- Movie/Episode 卡片 OK 进入播放；Series 详情暂未实现时显示明确提示，不允许空响应。
 
 #### 场景: 播放 OSD
 播放页进入后：
@@ -87,14 +97,14 @@ Emby 登录成功后：
 #### 场景: 全局按键契约
 用户使用遥控器时：
 - 方向键优先交给当前聚焦控件处理，根容器不抢占 OSD 内部控件的方向键和 OK/Enter。
-- Back 在抽屉打开时关闭抽屉，在播放 OSD 可见时隐藏 OSD，OSD 隐藏时退出播放页。
+- Back 在抽屉打开时关闭抽屉，在媒体库列表页返回首页，在播放 OSD 可见时隐藏 OSD，OSD 隐藏时退出播放页。
 - 禁用入口可显示原因，OK/Enter 不允许空响应。
 
 #### 场景: 首页与抽屉
 首页打开抽屉后：
 - 抽屉请求初始焦点并形成焦点组。
 - Back 或关闭按钮关闭抽屉，关闭后焦点返回菜单按钮。
-- 未实现的导航项和媒体库二级页显示“暂未支持”提示；媒体库卡片仍展示真实数量并可用 OK/Enter 触发提示。
+- 媒体库卡片和抽屉媒体库项可用 OK/Enter 进入媒体库列表页；未实现入口保留禁用态或明确提示。
 
 #### 场景: 播放 OSD
 OSD 显示后：
@@ -106,7 +116,7 @@ OSD 显示后：
 无外部 API。
 
 ## 数据模型
-使用 `HomeUiState`、`EmbyHomeDashboard`、`HomeDashboardUiModel`、`DrawerUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource` 和 `PlaybackDetails`。
+使用 `HomeUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`HomeDashboardUiModel`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource` 和 `PlaybackDetails`。
 
 ## 依赖
 - data
@@ -117,6 +127,7 @@ OSD 显示后：
 - NanoHTTPD
 
 ## 变更历史
+- [202605272217_library_browse_series_grouping](../../history/2026-05/202605272217_library_browse_series_grouping/) - 修复 Emby 图片兜底，新增媒体库列表页，剧集库按 Series 展示并显示剩余集数角标。
 - [202605272133_emby_playback_reporting](../../history/2026-05/202605272133_emby_playback_reporting/) - 播放页接入 Emby 播放状态上报。
 - [202605272047_home_library_latest_sections](../../history/2026-05/202605272047_home_library_latest_sections/) - 首页媒体库真实封面、继续观看剧集信息和按库最新资源分区。
 - [202605271602_emby_real_data_replacement](../../history/2026-05/202605271602_emby_real_data_replacement/) - 首页和播放器可见数据替换为 Emby 真实 API 数据，移除样例播放入口。

@@ -13,6 +13,7 @@
 - 新增 `PlaybackDetails`，播放器 OSD 可展示 Emby `PlaybackInfo` 返回的真实容器、编码、画质、音轨和字幕状态。
 - 新增首页按媒体库展示最新入库资源分区，数据来自每个媒体库的 `ParentId + DateCreated` 查询。
 - 新增 Emby Playback Check-ins 上报，播放开始、进度、暂停/恢复、快退/快进和停止播放会同步到服务器后台。
+- 新增媒体库资源列表页，首页或抽屉对媒体库按 OK/Enter 可进入该库首屏资源列表。
 
 ### 变更
 - 验证 `C:\Users\MyPC\.jdks\corretto-17.0.16` 可用于 Gradle，记录当前 Android SDK 路径仍缺失。
@@ -23,12 +24,14 @@
 - 首页首屏不再全量拉取 Movie/Episode 列表，改为按 Emby 真实聚合接口加载媒体库、继续观看和最近入库。
 - 首页媒体库卡片显示真实媒体库名称与封面；继续观看和按库最新资源卡片优先展示 Thumb/Backdrop 缩略图，并为 Episode 展示真实剧名和 SxxExx 信息。
 - 压缩 TV 端 Emby 配置页布局，用户名和密码改为同一行显示，连接按钮文案改为“确定连接”，避免 1080p 电视上底部字段被裁剪。
+- 首页按库最新资源改为使用 `Items/Latest?ParentId=...`；电影库按 Movie 展示，剧集库按 Series 维度展示并显示剩余未播放集数角标。
 
 ### 修复
 - 移除 AGP 9 下不再需要的 `org.jetbrains.kotlin.android` 插件配置，避免 Gradle 构建在插件应用阶段失败。
 - 修复 Android SDK 36.1 的 Gradle 配置方式，避免误用 `compileSdk = "android-36.1"` 或 `compileSdkExtension = 20`。
 - 移除生产入口中的样例播放、Big Buck Bunny 和播放器硬编码 `HEVC / 4K HDR` 展示。
 - 修复手机扫码同步提交时 NanoHTTPD 表单参数读取不稳定导致的“配对令牌无效”，同步成功后 token 在设置页生命周期内继续有效。
+- 修复媒体库、电影和剧集封面字段兼容不足的问题，支持 `PrimaryImageTag`、父级图片字段、`SeriesPrimaryImageTag` 和无 tag 图片端点兜底。
 
 ### 验证
 - `.\gradlew.bat :app:testDebugUnitTest` 通过。
