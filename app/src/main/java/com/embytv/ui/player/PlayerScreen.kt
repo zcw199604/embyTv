@@ -57,6 +57,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
@@ -71,6 +72,7 @@ import com.embytv.ui.theme.CinematicGlassSpacing
 import com.kuaishou.akdanmaku.DanmakuConfig
 import com.kuaishou.akdanmaku.ui.DanmakuView
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun PlayerScreen(
@@ -82,6 +84,11 @@ fun PlayerScreen(
     val danmakuPlayer = remember { container.danmakuBridge.createPlayer() }
     val focusRequester = remember { FocusRequester() }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val reportingCoordinator = remember(playbackSource) {
+        PlaybackReportingCoordinator { event ->
+            reportPlaybackEvent(container, playbackSource, event)
+        }
+    }
     var osdState by remember { mutableStateOf(PlayerOsdState()) }
 
     fun dispatch(action: PlayerOsdAction) {
@@ -96,6 +103,7 @@ fun PlayerScreen(
         player.setMediaItem(MediaItem.fromUri(playbackSource.streamUrl))
         player.prepare()
         player.playWhenReady = true
+        reportingCoordinator.onStarted(positionMs = 0L)
 
         danmakuPlayer.seekTo(0)
         danmakuPlayer.updateData(container.danmakuBridge.toAkItems(playbackSource.danmaku))
@@ -118,6 +126,10 @@ fun PlayerScreen(
         } else {
             player.pause()
         }
+        reportingCoordinator.onPauseChanged(
+            positionMs = player.currentPosition,
+            isPaused = !osdState.isPlaying,
+        )
     }
 
     LaunchedEffect(osdState.danmakuEnabled, osdState.danmakuPaused) {
@@ -136,7 +148,27 @@ fun PlayerScreen(
                     durationMs = player.duration.takeIf { it > 0L } ?: 0L,
                 ),
             )
+            reportingCoordinator.onProgressTick(
+                positionMs = player.currentPosition,
+                isPaused = !player.isPlaying,
+            )
             delay(1_000)
+        }
+    }
+
+    DisposableEffect(player, reportingCoordinator) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    reportingCoordinator.onStopped(
+                        positionMs = player.duration.takeIf { it > 0L } ?: player.currentPosition,
+                    )
+                }
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
         }
     }
 
@@ -146,12 +178,20 @@ fun PlayerScreen(
                 Lifecycle.Event.ON_RESUME -> {
                     if (osdState.isPlaying) {
                         player.play()
+                        reportingCoordinator.onPauseChanged(
+                            positionMs = player.currentPosition,
+                            isPaused = false,
+                        )
                     }
                     if (osdState.danmakuEnabled && !osdState.danmakuPaused) {
                         danmakuPlayer.start()
                     }
                 }
                 Lifecycle.Event.ON_PAUSE -> {
+                    reportingCoordinator.onPauseChanged(
+                        positionMs = player.currentPosition,
+                        isPaused = true,
+                    )
                     player.pause()
                     danmakuPlayer.pause()
                 }
@@ -161,6 +201,7 @@ fun PlayerScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            reportingCoordinator.onStopped(positionMs = player.currentPosition)
             player.release()
             danmakuPlayer.release()
         }
@@ -230,12 +271,18 @@ fun PlayerScreen(
             onBack = { dispatch(PlayerOsdAction.BackPressed) },
             onPlayPause = { dispatch(PlayerOsdAction.TogglePlayPause) },
             onReplay10 = {
-                player.seekTo((player.currentPosition - 10_000L).coerceAtLeast(0L))
+                val target = (player.currentPosition - 10_000L).coerceAtLeast(0L)
+                player.seekTo(target)
+                reportingCoordinator.onSeek(positionMs = target, isPaused = !player.isPlaying)
                 dispatch(PlayerOsdAction.UserInteraction)
             },
             onForward10 = {
-                val target = (player.currentPosition + 10_000L).coerceAtMost(player.duration.takeIf { it > 0L } ?: Long.MAX_VALUE)
+                val requestedTarget = player.currentPosition + 10_000L
+                val target = player.duration.takeIf { it > 0L }?.let { duration ->
+                    requestedTarget.coerceAtMost(duration)
+                } ?: requestedTarget
                 player.seekTo(target)
+                reportingCoordinator.onSeek(positionMs = target, isPaused = !player.isPlaying)
                 dispatch(PlayerOsdAction.UserInteraction)
             },
             onToggleDanmaku = { dispatch(PlayerOsdAction.ToggleDanmaku) },
@@ -243,6 +290,44 @@ fun PlayerScreen(
             onUnsupported = { dispatch(PlayerOsdAction.UnsupportedAction(it)) },
             onClearFeedback = { dispatch(PlayerOsdAction.ClearFeedback) },
         )
+    }
+}
+
+private fun reportPlaybackEvent(
+    container: AppContainer,
+    playbackSource: PlaybackSource,
+    event: PlaybackReportEvent,
+) {
+    val session = playbackSource.session ?: return
+    val deviceId = playbackSource.deviceId ?: return
+    container.applicationScope.launch {
+        when (event) {
+            is PlaybackReportEvent.Started -> {
+                container.embyRepository.reportPlaybackStarted(
+                    session = session,
+                    deviceId = deviceId,
+                    source = playbackSource,
+                    positionMs = event.positionMs,
+                )
+            }
+            is PlaybackReportEvent.Progress -> {
+                container.embyRepository.reportPlaybackProgress(
+                    session = session,
+                    deviceId = deviceId,
+                    source = playbackSource,
+                    positionMs = event.positionMs,
+                    isPaused = event.isPaused,
+                )
+            }
+            is PlaybackReportEvent.Stopped -> {
+                container.embyRepository.reportPlaybackStopped(
+                    session = session,
+                    deviceId = deviceId,
+                    source = playbackSource,
+                    positionMs = event.positionMs,
+                )
+            }
+        }
     }
 }
 

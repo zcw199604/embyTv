@@ -8,17 +8,22 @@ import com.embytv.data.local.EncryptedEmbyCredentialStore
 import com.embytv.data.remote.EmbyApiFactory
 import com.embytv.data.repository.EmbyRepository
 import com.embytv.data.repository.EmbyStreamUrlBuilder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 interface AppContainer {
     val embyRepository: EmbyRepository
     val playerFactory: Media3PlayerFactory
     val danmakuBridge: AkDanmakuBridge
+    val applicationScope: CoroutineScope
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
     private val appContext = context.applicationContext
     private val okHttpClient = NetworkModule.createOkHttpClient()
     private val streamUrlBuilder = EmbyStreamUrlBuilder()
+    override val applicationScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val embyRepository: EmbyRepository =
         EmbyRepository(

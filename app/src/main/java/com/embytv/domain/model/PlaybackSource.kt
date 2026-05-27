@@ -4,6 +4,8 @@ data class PlaybackSource(
     val itemId: String,
     val title: String,
     val streamUrl: String,
+    val session: EmbySession? = null,
+    val deviceId: String? = null,
     val details: PlaybackDetails = PlaybackDetails(),
     val danmaku: List<DanmakuCue> = emptyList(),
 )

@@ -5,6 +5,9 @@ import com.embytv.data.remote.dto.EmbyAuthRequest
 import com.embytv.data.remote.dto.EmbyItemDto
 import com.embytv.data.remote.dto.EmbyMediaSourceDto
 import com.embytv.data.remote.dto.EmbyMediaStreamDto
+import com.embytv.data.remote.dto.EmbyPlaybackProgressRequest
+import com.embytv.data.remote.dto.EmbyPlaybackStartRequest
+import com.embytv.data.remote.dto.EmbyPlaybackStoppedRequest
 import com.embytv.domain.model.EmbyCredentialStore
 import com.embytv.domain.model.EmbyHomeDashboard
 import com.embytv.domain.model.EmbyLibrarySummary
@@ -154,6 +157,7 @@ class EmbyRepository(
                 itemId = item.id,
                 accessToken = session.accessToken,
             ),
+            session = session,
         )
 
     suspend fun createPlaybackSourceWithDetails(
@@ -170,6 +174,7 @@ class EmbyRepository(
             )
             val source = playbackInfo.mediaSources.firstOrNull()
             createPlaybackSource(session, item).copy(
+                deviceId = deviceId,
                 details = PlaybackDetails(
                     playSessionId = playbackInfo.playSessionId,
                     mediaSourceId = source?.id,
@@ -178,6 +183,68 @@ class EmbyRepository(
                     video = source?.videoStream()?.toPlaybackVideoStream(),
                     audioTracks = source?.audioStreams().orEmpty().map { it.toPlaybackTrack() },
                     subtitleTracks = source?.subtitleStreams().orEmpty().map { it.toPlaybackTrack() },
+                ),
+            )
+        }
+    }
+
+    suspend fun reportPlaybackStarted(
+        session: EmbySession,
+        deviceId: String,
+        source: PlaybackSource,
+        positionMs: Long,
+    ): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            api.reportPlaybackStarted(
+                authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                request = EmbyPlaybackStartRequest(
+                    itemId = source.itemId,
+                    mediaSourceId = source.details.mediaSourceId,
+                    playSessionId = source.details.playSessionId,
+                    positionTicks = positionMs.toEmbyTicks(),
+                ),
+            )
+        }
+    }
+
+    suspend fun reportPlaybackProgress(
+        session: EmbySession,
+        deviceId: String,
+        source: PlaybackSource,
+        positionMs: Long,
+        isPaused: Boolean,
+    ): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            api.reportPlaybackProgress(
+                authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                request = EmbyPlaybackProgressRequest(
+                    itemId = source.itemId,
+                    mediaSourceId = source.details.mediaSourceId,
+                    playSessionId = source.details.playSessionId,
+                    positionTicks = positionMs.toEmbyTicks(),
+                    isPaused = isPaused,
+                ),
+            )
+        }
+    }
+
+    suspend fun reportPlaybackStopped(
+        session: EmbySession,
+        deviceId: String,
+        source: PlaybackSource,
+        positionMs: Long,
+    ): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            api.reportPlaybackStopped(
+                authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                request = EmbyPlaybackStoppedRequest(
+                    itemId = source.itemId,
+                    mediaSourceId = source.details.mediaSourceId,
+                    playSessionId = source.details.playSessionId,
+                    positionTicks = positionMs.toEmbyTicks(),
                 ),
             )
         }
@@ -260,3 +327,5 @@ class EmbyRepository(
         const val LIBRARY_LATEST_LIMIT = 8
     }
 }
+
+internal fun Long.toEmbyTicks(): Long = coerceAtLeast(0L) * 10_000L

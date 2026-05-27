@@ -4,6 +4,9 @@ import com.embytv.data.remote.dto.EmbyAuthRequest
 import com.embytv.data.remote.dto.EmbyAuthResponse
 import com.embytv.data.remote.dto.EmbyItemsResponse
 import com.embytv.data.remote.dto.EmbyPlaybackInfoResponse
+import com.embytv.data.remote.dto.EmbyPlaybackProgressRequest
+import com.embytv.data.remote.dto.EmbyPlaybackStartRequest
+import com.embytv.data.remote.dto.EmbyPlaybackStoppedRequest
 import com.embytv.data.remote.dto.EmbyViewsResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -72,6 +75,24 @@ interface EmbyApi {
         @Path("itemId") itemId: String,
         @Query("UserId") userId: String,
     ): EmbyPlaybackInfoResponse
+
+    @POST("Sessions/Playing")
+    suspend fun reportPlaybackStarted(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Body request: EmbyPlaybackStartRequest,
+    )
+
+    @POST("Sessions/Playing/Progress")
+    suspend fun reportPlaybackProgress(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Body request: EmbyPlaybackProgressRequest,
+    )
+
+    @POST("Sessions/Playing/Stopped")
+    suspend fun reportPlaybackStopped(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Body request: EmbyPlaybackStoppedRequest,
+    )
 
     companion object {
         const val MEDIA_ITEM_FIELDS =

@@ -78,6 +78,7 @@ Emby 登录成功后：
 - Audio/Subtitles 展示真实默认流或首个流标题；实际切换暂未实现时提供禁用原因。
 - OK/方向键唤起 OSD；Back 在 OSD 可见时先隐藏，再次 Back 退出播放页。
 - 弹幕开关和播放暂停状态同步到 AkDanmaku。
+- 播放开始、暂停/恢复、快退/快进、播放进度和退出播放页会通过 Emby Playback Check-ins 同步到服务器后台。
 
 ### 需求: TV 遥控器完整操作
 **模块:** ui
@@ -116,6 +117,7 @@ OSD 显示后：
 - NanoHTTPD
 
 ## 变更历史
+- [202605272133_emby_playback_reporting](../../history/2026-05/202605272133_emby_playback_reporting/) - 播放页接入 Emby 播放状态上报。
 - [202605272047_home_library_latest_sections](../../history/2026-05/202605272047_home_library_latest_sections/) - 首页媒体库真实封面、继续观看剧集信息和按库最新资源分区。
 - [202605271602_emby_real_data_replacement](../../history/2026-05/202605271602_emby_real_data_replacement/) - 首页和播放器可见数据替换为 Emby 真实 API 数据，移除样例播放入口。
 - [202605271514_emby_server_mobile_sync](../../history/2026-05/202605271514_emby_server_mobile_sync/) - 拆分 Emby 服务器配置字段，支持手机扫码同步和 token 凭证保存。

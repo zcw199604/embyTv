@@ -107,10 +107,36 @@
 | itemId | String | Emby 条目 ID |
 | title | String | 标题 |
 | streamUrl | String | Media3 播放地址 |
+| session | EmbySession? | 播放状态上报所需认证上下文 |
+| deviceId | String? | 播放状态上报所需设备 ID |
 | details | PlaybackDetails | 从 `PlaybackInfo` 生成的播放详情 |
 | danmaku | List<DanmakuCue> | 弹幕列表 |
 
 播放器 OSD 已使用 `PlaybackSource.details` 展示真实容器、编码、分辨率、HDR、音轨和字幕状态；真实音轨/字幕切换仍未实现。
+
+### PlaybackReportingCoordinator
+| 字段/状态 | 类型 | 说明 |
+|-----------|------|------|
+| startedReported | Boolean | 防止重复发送 `Sessions/Playing` |
+| stoppedReported | Boolean | 防止重复发送 `Sessions/Playing/Stopped` |
+| lastProgressPositionMs | Long? | 进度上报节流基准 |
+| lastPausedState | Boolean? | 暂停/恢复状态去重 |
+
+播放状态上报事件:
+| 事件 | 触发 |
+|------|------|
+| Started | 播放源准备后开始播放 |
+| Progress | 默认每 10 秒、暂停/恢复、快退/快进 |
+| Stopped | 播放自然结束、退出播放页或播放器释放 |
+
+时间单位规则: Media3 使用毫秒，Emby 使用 ticks，转换为 `positionMs.coerceAtLeast(0) * 10000`。
+
+### Emby Playback Check-ins DTO
+| 模型 | 用途 | 核心字段 |
+|------|------|----------|
+| EmbyPlaybackStartRequest | `POST Sessions/Playing` | ItemId, MediaSourceId, PlaySessionId, PositionTicks, CanSeek, IsPaused, PlayMethod |
+| EmbyPlaybackProgressRequest | `POST Sessions/Playing/Progress` | ItemId, MediaSourceId, PlaySessionId, PositionTicks, IsPaused, IsMuted, PlayMethod |
+| EmbyPlaybackStoppedRequest | `POST Sessions/Playing/Stopped` | ItemId, MediaSourceId, PlaySessionId, PositionTicks |
 
 ### DanmakuCue
 | 字段 | 类型 | 说明 |

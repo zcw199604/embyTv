@@ -142,6 +142,51 @@
 
 **落地实现:** 用户点击媒体时才调用该接口生成 `PlaybackSource.details`，播放器 OSD 顶部副标题、右上角质量标签、Audio/Subtitles 状态均从 `PlaybackDetails` 读取；音轨/字幕切换能力仍为后续独立切片。
 
+### 播放状态上报
+
+Emby 官方将播放状态同步称为 Playback Check-ins。当前客户端使用 `X-Emby-Authorization` 认证头调用以下接口，不在查询参数中拼接 token。
+
+#### POST Sessions/Playing
+**描述:** 播放开始时通知 Emby 当前设备开始播放指定媒体。
+
+**请求字段:**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| ItemId | string | 是 | 媒体条目 ID |
+| MediaSourceId | string | 否 | `PlaybackInfo.MediaSources[].Id` |
+| PlaySessionId | string | 否 | `PlaybackInfo.PlaySessionId` |
+| PositionTicks | long | 是 | 当前播放位置 ticks |
+| CanSeek | boolean | 是 | 当前固定 true |
+| IsPaused | boolean | 是 | 开始播放时 false |
+| PlayMethod | string | 是 | 当前固定 DirectPlay |
+
+#### POST Sessions/Playing/Progress
+**描述:** 播放中定期上报进度，也用于暂停、恢复和 seek 后立即同步状态。
+
+**请求字段:**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| ItemId | string | 是 | 媒体条目 ID |
+| MediaSourceId | string | 否 | 媒体源 ID |
+| PlaySessionId | string | 否 | 播放会话 ID |
+| PositionTicks | long | 是 | 当前播放位置 ticks |
+| IsPaused | boolean | 是 | 是否暂停 |
+| IsMuted | boolean | 是 | 当前固定 false |
+| PlayMethod | string | 是 | 当前固定 DirectPlay |
+
+#### POST Sessions/Playing/Stopped
+**描述:** 退出播放页、播放自然结束或播放器释放时通知 Emby 停止播放。
+
+**请求字段:**
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| ItemId | string | 是 | 媒体条目 ID |
+| MediaSourceId | string | 否 | 媒体源 ID |
+| PlaySessionId | string | 否 | 播放会话 ID |
+| PositionTicks | long | 是 | 停止时播放位置 ticks |
+
+**落地实现:** `PlayerScreen` 通过 `PlaybackReportingCoordinator` 控制 Playing/Progress/Stopped 去重和节流；进度默认 10 秒上报一次，暂停、恢复、快退、快进和停止为强制上报。
+
 ### 播放流
 
 #### GET Videos/{itemId}/stream

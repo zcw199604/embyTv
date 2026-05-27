@@ -9,6 +9,9 @@ import com.embytv.data.remote.dto.EmbyItemsResponse
 import com.embytv.data.remote.dto.EmbyMediaSourceDto
 import com.embytv.data.remote.dto.EmbyMediaStreamDto
 import com.embytv.data.remote.dto.EmbyPlaybackInfoResponse
+import com.embytv.data.remote.dto.EmbyPlaybackProgressRequest
+import com.embytv.data.remote.dto.EmbyPlaybackStartRequest
+import com.embytv.data.remote.dto.EmbyPlaybackStoppedRequest
 import com.embytv.data.remote.dto.EmbyUserDataDto
 import com.embytv.data.remote.dto.EmbyViewsResponse
 import com.embytv.domain.model.EmbySession
@@ -251,4 +254,25 @@ private class FakeEmbyApi : EmbyApi {
             ),
         ),
     )
+
+    override suspend fun reportPlaybackStarted(
+        authorization: String,
+        request: EmbyPlaybackStartRequest,
+    ) {
+        error("Not used")
+    }
+
+    override suspend fun reportPlaybackProgress(
+        authorization: String,
+        request: EmbyPlaybackProgressRequest,
+    ) {
+        error("Not used")
+    }
+
+    override suspend fun reportPlaybackStopped(
+        authorization: String,
+        request: EmbyPlaybackStoppedRequest,
+    ) {
+        error("Not used")
+    }
 }
