@@ -43,7 +43,9 @@
 
 ## 7. 测试
 - [√] 7.1 添加 URL 构造单元测试。
-- [-] 7.2 运行 Gradle 编译与测试。
-> 备注: 已验证 `C:\Users\MyPC\.jdks\corretto-17.0.16` 可用；设置该路径为 `JAVA_HOME` 后，`.\gradlew.bat --version` 显示 Launcher JVM 17.0.16。再次执行 `.\gradlew.bat :app:testDebugUnitTest` 已越过 JVM 门禁，并在 Android SDK 路径缺失处停止：需要配置 `ANDROID_HOME`、`ANDROID_SDK_ROOT` 或 `local.properties` 的 `sdk.dir`。
+- [√] 7.2 运行 Gradle 编译与测试。
+> 备注: 已验证 `C:\Users\MyPC\.jdks\corretto-17.0.16` 可用；设置该路径为 `JAVA_HOME` 后，`.\gradlew.bat --version` 显示 Launcher JVM 17.0.16。已配置 `local.properties` 指向 `C:\Users\MyPC\AppData\Local\Android\Sdk`，并执行 `.\gradlew.bat :app:testDebugUnitTest` 成功。
 - [√] 7.3 修复 AGP 9 构建配置。
 > 备注: 根据 Gradle 失败信息移除 `org.jetbrains.kotlin.android` 插件；AGP 9 已内置 Android Kotlin 支持，Compose 编译插件保留。
+- [√] 7.4 验证 Debug APK 构建。
+> 备注: 执行 `.\gradlew.bat :app:assembleDebug` 成功。构建期间提示 `libandroidx.graphics.path.so` 和 `libgdx.so` 未 strip，会按原样打包；当前不影响 debug 构建。

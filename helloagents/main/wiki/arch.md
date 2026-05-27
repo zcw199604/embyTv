@@ -18,6 +18,7 @@ flowchart TD
 
 ## 技术栈
 - **客户端:** Android TV / Kotlin / Compose
+- **SDK:** compileSdk 36 + compileSdkMinor 1，对应本机安装的 `android-36.1`
 - **网络:** Retrofit + OkHttp
 - **播放:** AndroidX Media3 + 本地 FFmpeg 扩展预留
 - **弹幕:** AkDanmaku

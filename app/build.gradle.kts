@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "com.embytv"
     compileSdk = 36
+    compileSdkMinor = 1
 
     defaultConfig {
         applicationId = "com.embytv"
