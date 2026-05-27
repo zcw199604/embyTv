@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -91,7 +90,7 @@ fun SetupScreen(
             Text(
                 text = "Emby",
                 color = CinematicGlassColors.Primary,
-                fontSize = 32.sp,
+                fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
@@ -136,21 +135,21 @@ private fun QuickSetupPanel(
 ) {
     GlassPanel(modifier = modifier, cornerRadius = 12.dp) {
         Column(
-            modifier = Modifier.padding(44.dp),
+            modifier = Modifier.padding(horizontal = 34.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(22.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
                 text = "Quick Setup",
                 color = CinematicGlassColors.OnSurface,
-                fontSize = 40.sp,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = "使用手机扫码填写服务器信息，点击同步后会更新电视端表单。",
                 color = CinematicGlassColors.OnSurfaceVariant,
-                fontSize = 18.sp,
-                lineHeight = 26.sp,
+                fontSize = 16.sp,
+                lineHeight = 23.sp,
             )
             QrCodeBox(qrUrl = qrUrl)
             Text(
@@ -169,7 +168,7 @@ private fun QuickSetupPanel(
 private fun QrCodeBox(qrUrl: String?) {
     Box(
         modifier = Modifier
-            .size(260.dp)
+            .size(244.dp)
             .background(Color.White, RoundedCornerShape(8.dp))
             .padding(18.dp),
     ) {
@@ -206,19 +205,20 @@ private fun ManualSetupPanel(
 ) {
     GlassPanel(modifier = modifier, cornerRadius = 12.dp) {
         Column(
-            modifier = Modifier.padding(44.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            modifier = Modifier.padding(horizontal = 34.dp, vertical = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
                 text = "Manual Entry",
                 color = CinematicGlassColors.OnSurface,
-                fontSize = 34.sp,
+                fontSize = 30.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = "输入 Emby 服务器信息和账号，连接成功后进入媒体中心。",
                 color = CinematicGlassColors.OnSurfaceVariant,
-                fontSize = 18.sp,
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
             )
             val draft = state.serverConfig
             TvSetupInputField(
@@ -253,29 +253,32 @@ private fun ManualSetupPanel(
                 imeAction = ImeAction.Next,
                 onValueChange = onServerPathChange,
             )
-            TvSetupInputField(
-                label = "用户名",
-                value = draft.username,
-                placeholder = "Emby 用户名",
-                icon = Icons.Filled.Person,
-                imeAction = ImeAction.Next,
-                onValueChange = onUsernameChange,
-            )
-            TvSetupInputField(
-                label = "密码",
-                value = draft.password,
-                placeholder = "可为空",
-                icon = Icons.Filled.Key,
-                isPassword = true,
-                imeAction = ImeAction.Done,
-                onValueChange = onPasswordChange,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxWidth()) {
+                TvSetupInputField(
+                    label = "用户名",
+                    value = draft.username,
+                    placeholder = "Emby 用户名",
+                    icon = Icons.Filled.Person,
+                    imeAction = ImeAction.Next,
+                    onValueChange = onUsernameChange,
+                    modifier = Modifier.weight(1f),
+                )
+                TvSetupInputField(
+                    label = "密码",
+                    value = draft.password,
+                    placeholder = "可为空",
+                    icon = Icons.Filled.Key,
+                    isPassword = true,
+                    imeAction = ImeAction.Done,
+                    onValueChange = onPasswordChange,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             state.errorMessage?.let {
                 Text(text = it, color = CinematicGlassColors.Error, fontSize = 15.sp)
             }
-            Spacer(modifier = Modifier.height(4.dp))
             PrimaryTvButton(
-                text = if (state.isLoading) "连接中" else "Connect",
+                text = if (state.isLoading) "连接中" else "确定连接",
                 icon = Icons.Filled.CastConnected,
                 enabled = !state.isLoading,
                 onClick = onConnect,
@@ -297,13 +300,13 @@ private fun TvSetupInputField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(text = label, color = CinematicGlassColors.OnSurfaceVariant, fontSize = 14.sp)
         var hasFocus by remember { mutableStateOf(false) }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(62.dp)
+                .height(56.dp)
                 .onFocusChanged { hasFocus = it.isFocused }
                 .border(
                     width = if (hasFocus) 2.dp else 1.dp,
@@ -322,13 +325,13 @@ private fun TvSetupInputField(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = imeAction),
                 visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-                textStyle = TextStyle(color = CinematicGlassColors.OnSurface, fontSize = 20.sp),
+                textStyle = TextStyle(color = CinematicGlassColors.OnSurface, fontSize = 18.sp),
                 cursorBrush = SolidColor(CinematicGlassColors.Primary),
                 modifier = Modifier.weight(1f),
                 decorationBox = { innerTextField ->
                     Box {
                         if (value.isEmpty()) {
-                            Text(text = placeholder, color = CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.5f), fontSize = 20.sp)
+                            Text(text = placeholder, color = CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.5f), fontSize = 18.sp)
                         }
                         innerTextField()
                     }
@@ -344,7 +347,7 @@ private fun ProtocolSelector(
     onValueChange: (ServerProtocol) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(text = "协议", color = CinematicGlassColors.OnSurfaceVariant, fontSize = 14.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             ProtocolOption(
@@ -371,7 +374,7 @@ private fun ProtocolOption(
     modifier: Modifier = Modifier,
 ) {
     FocusableGlassSurface(
-        modifier = modifier.height(62.dp),
+        modifier = modifier.height(56.dp),
         cornerRadius = 8.dp,
         onClick = onClick,
     ) { focused ->

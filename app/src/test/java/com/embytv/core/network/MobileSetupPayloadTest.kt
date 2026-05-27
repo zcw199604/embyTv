@@ -56,4 +56,27 @@ class MobileSetupPayloadTest {
         assertEquals("alice", payload.draft.username)
         assertEquals("secret", payload.draft.password)
     }
+
+    @Test
+    fun parseValuesBuildsDraftForNanoHttpdParameters() {
+        val payload = MobileSetupPayload.fromValues(
+            values = mapOf(
+                "pair" to "ok",
+                "protocol" to "http",
+                "host" to "media.example.com",
+                "port" to "8096",
+                "path" to "emby",
+                "username" to "alice",
+                "password" to "secret",
+            ),
+            expectedPair = "ok",
+        ).getOrThrow()
+
+        assertEquals(ServerProtocol.Http, payload.draft.protocol)
+        assertEquals("media.example.com", payload.draft.host)
+        assertEquals("8096", payload.draft.port)
+        assertEquals("emby", payload.draft.path)
+        assertEquals("alice", payload.draft.username)
+        assertEquals("secret", payload.draft.password)
+    }
 }

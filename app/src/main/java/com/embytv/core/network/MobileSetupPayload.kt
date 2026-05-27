@@ -9,8 +9,11 @@ data class MobileSetupPayload(
 ) {
     companion object {
         fun fromForm(body: String, expectedPair: String): Result<MobileSetupPayload> = runCatching {
+            fromValues(body.parseFormBody(), expectedPair).getOrThrow()
+        }
+
+        fun fromValues(values: Map<String, String>, expectedPair: String): Result<MobileSetupPayload> = runCatching {
             require(expectedPair.isNotBlank()) { "配对已过期" }
-            val values = body.parseFormBody()
             require(values["pair"] == expectedPair) { "配对令牌无效" }
             val protocol = ServerProtocol.from(values["protocol"].orEmpty())
                 ?: throw IllegalArgumentException("协议无效")

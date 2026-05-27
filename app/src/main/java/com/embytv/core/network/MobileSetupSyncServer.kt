@@ -86,10 +86,8 @@ class MobileSetupSyncServer(
             val files = mutableMapOf<String, String>()
             return runCatching {
                 session.parseBody(files)
-                val body = files["postData"].orEmpty()
-                val payload = MobileSetupPayload.fromForm(body, expectedPair).getOrThrow()
+                val payload = MobileSetupPayload.fromValues(session.firstParameters(), expectedPair).getOrThrow()
                 onDraft(payload.draft)
-                expectedPair = ""
                 newFixedLengthResponse(Response.Status.OK, "application/json", """{"ok":true,"message":"已同步到电视"}""")
             }.getOrElse { error ->
                 val message = error.message?.jsonEscape().orEmpty()
@@ -114,6 +112,9 @@ class MobileSetupSyncServer(
         const val DEFAULT_PORT = 18096
     }
 }
+
+private fun NanoHTTPD.IHTTPSession.firstParameters(): Map<String, String> =
+    parameters.mapValues { (_, values) -> values.firstOrNull().orEmpty() }
 
 data class MobileSetupEndpoint(
     val url: String,
