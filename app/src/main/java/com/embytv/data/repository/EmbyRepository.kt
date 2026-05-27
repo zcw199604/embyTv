@@ -8,6 +8,7 @@ import com.embytv.data.remote.dto.EmbyMediaStreamDto
 import com.embytv.domain.model.EmbyCredentialStore
 import com.embytv.domain.model.EmbyHomeDashboard
 import com.embytv.domain.model.EmbyLibrarySummary
+import com.embytv.domain.model.EmbyLibraryLatestSection
 import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.NoOpEmbyCredentialStore
@@ -119,11 +120,27 @@ class EmbyRepository(
                     authorization = authorization,
                     userId = session.userId,
                 ).mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                val libraryLatestSections = libraries.mapNotNull { library ->
+                    val items = api.getItemsByParent(
+                        authorization = authorization,
+                        userId = session.userId,
+                        parentId = library.id,
+                        limit = LIBRARY_LATEST_LIMIT,
+                        sortBy = "DateCreated",
+                        sortOrder = "Descending",
+                    ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                    if (items.isEmpty()) {
+                        null
+                    } else {
+                        EmbyLibraryLatestSection(library = library, items = items)
+                    }
+                }
 
                 EmbyHomeDashboard(
                     libraries = libraries,
                     resumeItems = resume,
                     latestItems = latest,
+                    libraryLatestSections = libraryLatestSections,
                 )
             }
         }
@@ -189,8 +206,21 @@ class EmbyRepository(
                 itemId = id,
                 tag = imageTags?.get("Primary"),
             ),
+            thumbImageUrl = streamUrlBuilder.buildThumbImageUrl(
+                serverUrl = serverUrl,
+                itemId = id,
+                tag = imageTags?.get("Thumb"),
+            ),
+            backdropImageUrl = streamUrlBuilder.buildBackdropImageUrl(
+                serverUrl = serverUrl,
+                itemId = id,
+                tag = backdropImageTags.firstOrNull(),
+            ),
             seriesName = seriesName,
             seasonName = seasonName,
+            parentIndexNumber = parentIndexNumber,
+            indexNumber = indexNumber,
+            parentId = parentId,
             runTimeTicks = runTimeTicks,
             playbackPositionTicks = userData?.playbackPositionTicks ?: 0L,
             playedPercentage = userData?.playedPercentage,
@@ -225,4 +255,8 @@ class EmbyRepository(
             isDefault = isDefault,
             isForced = isForced,
         )
+
+    private companion object {
+        const val LIBRARY_LATEST_LIMIT = 8
+    }
 }

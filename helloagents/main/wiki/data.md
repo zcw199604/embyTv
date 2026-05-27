@@ -31,8 +31,13 @@
 | type | String | Movie 或 Episode |
 | overview | String? | 简介 |
 | imageUrl | String? | 主图地址 |
+| thumbImageUrl | String? | Thumb 缩略图地址 |
+| backdropImageUrl | String? | Backdrop 背景图地址 |
 | seriesName | String? | 剧集所属剧名 |
 | seasonName | String? | 季名称 |
+| parentIndexNumber | Int? | 季序号 |
+| indexNumber | Int? | 集序号 |
+| parentId | String? | 父级条目或媒体库 ID |
 | runTimeTicks | Long? | Emby ticks 总时长 |
 | playbackPositionTicks | Long | 当前播放位置 ticks |
 | playedPercentage | Double? | Emby 已播放百分比 |
@@ -48,12 +53,19 @@
 | itemCount | Int | `Users/{userId}/Items?ParentId=...` 的 `TotalRecordCount` | 视频数量 |
 | imageUrl | String? | `Views.Items[].ImageTags.Primary` | 媒体库封面 |
 
+### EmbyLibraryLatestSection
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| library | EmbyLibrarySummary | `Users/{userId}/Views` | 当前分区所属媒体库 |
+| items | List<MediaItemSummary> | `Users/{userId}/Items?ParentId=...&SortBy=DateCreated&SortOrder=Descending&Limit=8` | 媒体库最新资源 |
+
 ### EmbyHomeDashboard
 | 字段 | 类型 | 来源 | 说明 |
 |------|------|------|------|
 | libraries | List<EmbyLibrarySummary> | `Users/{userId}/Views` + 按库统计 | 首页媒体库卡片 |
 | resumeItems | List<MediaItemSummary> | `Users/{userId}/Items/Resume` | 继续观看 |
 | latestItems | List<MediaItemSummary> | `Users/{userId}/Items/Latest` | 最近入库兜底 |
+| libraryLatestSections | List<EmbyLibraryLatestSection> | 按每个媒体库 ParentId 查询最新资源 | 首页按媒体库展示最新内容 |
 
 ### PlaybackDetails
 | 字段 | 类型 | 来源 | 说明 |

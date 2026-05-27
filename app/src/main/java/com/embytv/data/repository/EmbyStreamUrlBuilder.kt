@@ -20,10 +20,33 @@ class EmbyStreamUrlBuilder {
         serverUrl: String,
         itemId: String,
         tag: String?,
+    ): String? = buildImageUrl(serverUrl, itemId, "Primary", tag)
+
+    fun buildThumbImageUrl(
+        serverUrl: String,
+        itemId: String,
+        tag: String?,
+    ): String? = buildImageUrl(serverUrl, itemId, "Thumb", tag)
+
+    fun buildBackdropImageUrl(
+        serverUrl: String,
+        itemId: String,
+        tag: String?,
     ): String? {
         if (tag.isNullOrBlank()) return null
         val base = serverUrl.trim().trimEnd('/')
-        return "$base/Items/${itemId.urlEncode()}/Images/Primary?tag=${tag.urlEncode()}"
+        return "$base/Items/${itemId.urlEncode()}/Images/Backdrop/0?tag=${tag.urlEncode()}"
+    }
+
+    private fun buildImageUrl(
+        serverUrl: String,
+        itemId: String,
+        imageType: String,
+        tag: String?,
+    ): String? {
+        if (tag.isNullOrBlank()) return null
+        val base = serverUrl.trim().trimEnd('/')
+        return "$base/Items/${itemId.urlEncode()}/Images/$imageType?tag=${tag.urlEncode()}"
     }
 }
 

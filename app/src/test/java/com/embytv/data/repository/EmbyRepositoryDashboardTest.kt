@@ -52,6 +52,14 @@ class EmbyRepositoryDashboardTest {
 
         assertEquals("latest-1", dashboard.latestItems.single().id)
         assertEquals(2026, dashboard.latestItems.single().productionYear)
+        assertEquals(1, dashboard.libraryLatestSections.size)
+        assertEquals("library-1", dashboard.libraryLatestSections.single().library.id)
+        assertEquals("library-latest-1", dashboard.libraryLatestSections.single().items.single().id)
+        assertEquals("真实剧集", dashboard.libraryLatestSections.single().items.single().seriesName)
+        assertEquals(1, dashboard.libraryLatestSections.single().items.single().parentIndexNumber)
+        assertEquals(2, dashboard.libraryLatestSections.single().items.single().indexNumber)
+        assertEquals("http://emby.test/Items/library-latest-1/Images/Thumb?tag=thumb-tag", dashboard.libraryLatestSections.single().items.single().thumbImageUrl)
+        assertEquals("http://emby.test/Items/library-latest-1/Images/Backdrop/0?tag=backdrop-tag", dashboard.libraryLatestSections.single().items.single().backdropImageUrl)
     }
 
     @Test
@@ -123,7 +131,30 @@ private class FakeEmbyApi : EmbyApi {
         recursive: Boolean,
         includeItemTypes: String,
         limit: Int,
-    ): EmbyItemsResponse = EmbyItemsResponse(totalRecordCount = 42)
+        sortBy: String?,
+        sortOrder: String?,
+        fields: String,
+    ): EmbyItemsResponse = if (limit == 0) {
+        EmbyItemsResponse(totalRecordCount = 42)
+    } else {
+        EmbyItemsResponse(
+            items = listOf(
+                EmbyItemDto(
+                    id = "library-latest-1",
+                    name = "第 2 集",
+                    type = "Episode",
+                    overview = "库内最新",
+                    imageTags = mapOf("Primary" to "primary-tag", "Thumb" to "thumb-tag"),
+                    backdropImageTags = listOf("backdrop-tag"),
+                    parentId = "library-1",
+                    seriesName = "真实剧集",
+                    seasonName = "Season 1",
+                    parentIndexNumber = 1,
+                    indexNumber = 2,
+                ),
+            ),
+        )
+    }
 
     override suspend fun getResumeItems(
         authorization: String,

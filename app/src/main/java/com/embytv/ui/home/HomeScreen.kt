@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -114,7 +114,7 @@ private fun HomeDashboardScreen(
                     ),
                 ),
         )
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
@@ -123,65 +123,81 @@ private fun HomeDashboardScreen(
                 ),
             verticalArrangement = Arrangement.spacedBy(30.dp),
         ) {
-            TopChromeBar(
-                title = "EMBY",
-                subtitle = "Subtitles: ON · v0.1.0",
-                onMenuClick = { drawerState = drawerState.open() },
-                menuFocusRequester = menuFocusRequester,
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Welcome back",
-                    color = CinematicGlassColors.Primary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp,
-                )
-                Text(
-                    text = "Your Personal Home Cinema.",
-                    color = CinematicGlassColors.OnSurface,
-                    fontSize = 52.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            item {
+                TopChromeBar(
+                    title = "EMBY",
+                    subtitle = "Subtitles: ON · v0.1.0",
+                    onMenuClick = { drawerState = drawerState.open() },
+                    menuFocusRequester = menuFocusRequester,
                 )
             }
-
-            SectionHeader(title = "Media Libraries")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap),
-            ) {
-                dashboard.libraries.forEach { library ->
-                    LibraryCard(
-                        library = library,
-                        modifier = Modifier.weight(1f),
-                        onClick = { hintMessage = library.disabledReason },
-                        onUnsupported = { hintMessage = it },
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Welcome back",
+                        color = CinematicGlassColors.Primary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
+                    )
+                    Text(
+                        text = "Your Personal Home Cinema.",
+                        color = CinematicGlassColors.OnSurface,
+                        fontSize = 52.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SectionHeader(title = dashboard.mediaSectionTitle)
+            item {
+                SectionHeader(title = "Media Libraries")
             }
-            if (mediaItems.isEmpty()) {
-                EmptyDashboardPanel()
-            } else {
+            item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap)) {
-                    items(mediaItems, key = { it.id }) { item ->
-                        val card = dashboard.continueWatching.firstOrNull { it.id == item.id } ?: return@items
-                        MediaPosterCard(
-                            card = card,
-                            modifier = Modifier.fillParentMaxWidth(0.16f),
-                            onClick = { onPlay(item) },
+                    items(dashboard.libraries, key = { it.id }) { library ->
+                        LibraryCard(
+                            library = library,
+                            modifier = Modifier.fillParentMaxWidth(0.29f),
+                            onClick = { hintMessage = library.disabledReason },
+                            onUnsupported = { hintMessage = it },
                         )
                     }
                 }
+            }
+
+            item {
+                SectionHeader(title = dashboard.mediaSectionTitle)
+            }
+            item {
+                if (mediaItems.isEmpty()) {
+                    EmptyDashboardPanel()
+                } else {
+                    MediaRow(
+                        cards = dashboard.continueWatching,
+                        mediaItems = mediaItems,
+                        onPlay = onPlay,
+                    )
+                }
+            }
+
+            items(dashboard.libraryLatestSections, key = { it.id }) { section ->
+                SectionHeader(title = section.title)
+                MediaRow(
+                    cards = section.items,
+                    mediaItems = section.items.mapNotNull { card ->
+                        state.dashboard.libraryLatestSections
+                            .firstOrNull { it.library.id == section.id }
+                            ?.items
+                            ?.firstOrNull { it.id == card.id }
+                    },
+                    onPlay = onPlay,
+                )
+            }
+
+            item {
+                Box(modifier = Modifier.padding(bottom = 108.dp))
             }
         }
         MiniPlayerBar(modifier = Modifier.align(Alignment.BottomCenter))
@@ -202,6 +218,24 @@ private fun HomeDashboardScreen(
             },
             onUnsupported = { hintMessage = it },
         )
+    }
+}
+
+@Composable
+private fun MediaRow(
+    cards: List<MediaCardUiModel>,
+    mediaItems: List<MediaItemSummary>,
+    onPlay: (MediaItemSummary) -> Unit,
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap)) {
+        items(mediaItems, key = { it.id }) { item ->
+            val card = cards.firstOrNull { it.id == item.id } ?: return@items
+            MediaPosterCard(
+                card = card,
+                modifier = Modifier.fillParentMaxWidth(0.16f),
+                onClick = { onPlay(item) },
+            )
+        }
     }
 }
 

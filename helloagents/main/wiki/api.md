@@ -47,7 +47,7 @@
 | IncludeItemTypes | string | 是 | 当前为 Movie,Episode |
 | Fields | string | 是 | Overview,PrimaryImageAspectRatio,ImageTags |
 
-**真实接口探测:** 2026-05-27 使用测试服务器验证通过。`Fields` 可扩展为 `Overview,PrimaryImageAspectRatio,ImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesName,SeasonName,IndexNumber,ParentIndexNumber`，可支撑媒体卡片、进度、年份和播放页标题信息。
+**真实接口探测:** 2026-05-27 使用测试服务器验证通过。`Fields` 可扩展为 `Overview,PrimaryImageAspectRatio,ImageTags,BackdropImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesName,SeasonName,IndexNumber,ParentIndexNumber`，可支撑媒体卡片、进度、年份、剧集上下文和播放页标题信息。
 
 ### 媒体库视图
 
@@ -64,6 +64,22 @@
 **真实接口探测:** 2026-05-27 使用测试服务器验证通过，`TotalRecordCount` 可用于媒体库数量展示。
 
 **落地实现:** 首页逐个 View 查询 `TotalRecordCount`，只取计数，不把该接口作为列表数据源。
+
+#### GET Users/{userId}/Items?ParentId={viewId}&Recursive=true&IncludeItemTypes=Movie,Episode&Limit=8&SortBy=DateCreated&SortOrder=Descending
+**描述:** 按媒体库获取最近入库的少量媒体资源，用于首页在继续观看下方展示每个媒体库的最新内容。
+
+**请求参数:**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| ParentId | string | 是 | 媒体库 View ID |
+| Recursive | boolean | 是 | 当前固定为 true |
+| IncludeItemTypes | string | 是 | 当前为 Movie,Episode |
+| Limit | int | 是 | 当前固定为 8，避免首页全量拉取 |
+| SortBy | string | 是 | 当前为 DateCreated |
+| SortOrder | string | 是 | 当前为 Descending |
+| Fields | string | 是 | 包含 ImageTags、BackdropImageTags、UserData、RunTimeTicks、ParentId、SeriesName、SeasonName、IndexNumber、ParentIndexNumber 等 |
+
+**落地实现:** `EmbyRepository.loadHomeDashboard()` 会对已返回的每个媒体库请求固定 8 条最新资源，空结果不生成首页 section。
 
 ### 继续观看
 
@@ -89,6 +105,20 @@
 **真实接口探测:** 2026-05-27 使用测试服务器验证通过。该接口返回数组而不是带 `Items` 包装的对象。
 
 **落地实现:** 当继续观看为空时，首页媒体横排显示最近入库条目，标题改为“最近入库”。
+
+### 图片资源
+
+#### GET Items/{itemId}/Images/{imageType}?tag={tag}
+**描述:** 根据 Emby 返回的图片 tag 构造媒体库和媒体条目图片 URL。
+
+**图片类型:**
+| 类型 | 来源字段 | 当前用途 |
+|------|----------|----------|
+| Primary | `ImageTags.Primary` | 媒体库封面、媒体条目主图兜底 |
+| Thumb | `ImageTags.Thumb` | 继续观看和最新资源缩略图优先来源 |
+| Backdrop | `BackdropImageTags[0]` | 缩略图缺失时的背景图兜底 |
+
+**落地实现:** 媒体卡片图片优先级为 `Thumb -> Backdrop -> Primary`；没有真实图片 tag 时显示本地占位，不拼接假图。
 
 ### 剧集下一集
 

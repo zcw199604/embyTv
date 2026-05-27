@@ -20,11 +20,15 @@ data class EmbyItemDto(
     @SerializedName("ChildCount") val childCount: Int? = null,
     @SerializedName("Overview") val overview: String?,
     @SerializedName("ImageTags") val imageTags: Map<String, String>?,
+    @SerializedName("BackdropImageTags") val backdropImageTags: List<String> = emptyList(),
     @SerializedName("UserData") val userData: EmbyUserDataDto? = null,
     @SerializedName("RunTimeTicks") val runTimeTicks: Long? = null,
     @SerializedName("MediaSources") val mediaSources: List<EmbyMediaSourceDto> = emptyList(),
+    @SerializedName("ParentId") val parentId: String? = null,
     @SerializedName("SeriesName") val seriesName: String? = null,
     @SerializedName("SeasonName") val seasonName: String? = null,
+    @SerializedName("ParentIndexNumber") val parentIndexNumber: Int? = null,
+    @SerializedName("IndexNumber") val indexNumber: Int? = null,
     @SerializedName("ProductionYear") val productionYear: Int? = null,
 )
 

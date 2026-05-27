@@ -63,9 +63,12 @@ Emby 登录成功后：
 认证成功后：
 - 首页展示顶部栏、媒体库卡片、继续观看或最近入库横向媒体行和迷你播放条。
 - 媒体库卡片来自 `Users/{userId}/Views`，数量来自按 `ParentId` 统计的 `TotalRecordCount`。
+- 媒体库卡片展示真实媒体库名称和 `ImageTags.Primary` 封面，媒体库数量较多时以横向可聚焦列表呈现。
 - 继续观看来自 `Users/{userId}/Items/Resume`，进度来自 `UserData.PlayedPercentage` 或 `PlaybackPositionTicks / RunTimeTicks`。
+- 继续观看卡片优先展示 `ImageTags.Thumb` 缩略图，缺失时按 `BackdropImageTags`、`ImageTags.Primary` 兜底；Episode 副标题展示真实剧名和 `SxxExx`。
 - 继续观看为空时展示 `Users/{userId}/Items/Latest` 的最近入库条目。
-- 媒体卡片通过 Coil Compose 加载 `MediaItemSummary.imageUrl`。
+- 继续观看下方按每个媒体库展示最新资源横排，数据来自 `Users/{userId}/Items?ParentId=...&SortBy=DateCreated&SortOrder=Descending&Limit=8`。
+- 媒体卡片通过 Coil Compose 加载 `MediaItemSummary.thumbImageUrl`、`backdropImageUrl` 或 `imageUrl`。
 - 首页不再展示本地硬编码 Movies、TV Shows、Anime 卡片、假进度或样例播放入口。
 
 #### 场景: 播放 OSD
@@ -113,6 +116,7 @@ OSD 显示后：
 - NanoHTTPD
 
 ## 变更历史
+- [202605272047_home_library_latest_sections](../../history/2026-05/202605272047_home_library_latest_sections/) - 首页媒体库真实封面、继续观看剧集信息和按库最新资源分区。
 - [202605271602_emby_real_data_replacement](../../history/2026-05/202605271602_emby_real_data_replacement/) - 首页和播放器可见数据替换为 Emby 真实 API 数据，移除样例播放入口。
 - [202605271514_emby_server_mobile_sync](../../history/2026-05/202605271514_emby_server_mobile_sync/) - 拆分 Emby 服务器配置字段，支持手机扫码同步和 token 凭证保存。
 - [202605271434_remote_control_support](../../history/2026-05/202605271434_remote_control_support/) - 补齐 TV 遥控器焦点、Back、禁用反馈和播放 OSD 操作闭环。

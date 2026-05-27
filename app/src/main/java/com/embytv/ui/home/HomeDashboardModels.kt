@@ -28,10 +28,17 @@ data class MediaCardUiModel(
     val badge: String,
 )
 
+data class MediaSectionUiModel(
+    val id: String,
+    val title: String,
+    val items: List<MediaCardUiModel>,
+)
+
 data class HomeDashboardUiModel(
     val navigationItems: List<HomeNavigationItem>,
     val libraries: List<LibrarySummaryUiModel>,
     val continueWatching: List<MediaCardUiModel>,
+    val libraryLatestSections: List<MediaSectionUiModel>,
     val mediaSectionTitle: String,
 )
 
@@ -75,14 +82,19 @@ object HomeDashboardMapper {
                 )
             },
             continueWatching = mediaItems.take(12).map { item ->
-                MediaCardUiModel(
-                    id = item.id,
-                    title = item.name.ifBlank { item.id },
-                    subtitle = item.subtitle(),
-                    imageUrl = item.imageUrl,
-                    progressFraction = item.progressFraction(),
-                    badge = item.type.ifBlank { "Media" },
-                )
+                item.toMediaCard()
+            },
+            libraryLatestSections = dashboard.libraryLatestSections.mapNotNull { section ->
+                val items = section.items.take(12).map { it.toMediaCard() }
+                if (items.isEmpty()) {
+                    null
+                } else {
+                    MediaSectionUiModel(
+                        id = section.library.id,
+                        title = "${section.library.name.ifBlank { section.library.collectionType ?: "媒体库" }} · 最新入库",
+                        items = items,
+                    )
+                }
             },
             mediaSectionTitle = if (dashboard.resumeItems.isNotEmpty()) "Continue Watching" else "最近入库",
         )
@@ -90,11 +102,42 @@ object HomeDashboardMapper {
 
     private fun Int.toItemCountLabel(): String = if (this == 1) "1 item" else "$this items"
 
+    private fun MediaItemSummary.toMediaCard(): MediaCardUiModel =
+        MediaCardUiModel(
+            id = id,
+            title = displayTitle(),
+            subtitle = subtitle(),
+            imageUrl = preferredImageUrl(),
+            progressFraction = progressFraction(),
+            badge = type.ifBlank { "Media" },
+        )
+
+    private fun MediaItemSummary.displayTitle(): String = name.ifBlank { seriesName ?: id }
+
     private fun MediaItemSummary.subtitle(): String =
-        seriesName?.takeIf { it.isNotBlank() }
+        episodeContext()?.takeIf { it.isNotBlank() }
+            ?: seriesName?.takeIf { it.isNotBlank() }
             ?: overview?.takeIf { it.isNotBlank() }
             ?: productionYear?.toString()
             ?: type
+
+    private fun MediaItemSummary.episodeContext(): String? {
+        if (!type.equals("Episode", ignoreCase = true)) return null
+        val series = seriesName?.takeIf { it.isNotBlank() }
+        val episodeCode = episodeCode()
+        return listOfNotNull(series, episodeCode).joinToString(" · ").ifBlank {
+            seasonName?.takeIf { it.isNotBlank() } ?: name.takeIf { it.isNotBlank() }
+        }
+    }
+
+    private fun MediaItemSummary.episodeCode(): String? {
+        val season = parentIndexNumber ?: return indexNumber?.let { "E%02d".format(it) }
+        val episode = indexNumber ?: return "S%02d".format(season)
+        return "S%02dE%02d".format(season, episode)
+    }
+
+    private fun MediaItemSummary.preferredImageUrl(): String? =
+        thumbImageUrl ?: backdropImageUrl ?: imageUrl
 
     private fun MediaItemSummary.progressFraction(): Float {
         playedPercentage?.let { return (it / 100.0).toFloat().coerceIn(0f, 1f) }

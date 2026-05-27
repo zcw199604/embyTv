@@ -42,6 +42,9 @@ interface EmbyApi {
         @Query("Recursive") recursive: Boolean = true,
         @Query("IncludeItemTypes") includeItemTypes: String = "Movie,Episode",
         @Query("Limit") limit: Int = 0,
+        @Query("SortBy") sortBy: String? = null,
+        @Query("SortOrder") sortOrder: String? = null,
+        @Query("Fields") fields: String = MEDIA_ITEM_FIELDS,
     ): EmbyItemsResponse
 
     @GET("Users/{userId}/Items/Resume")
@@ -72,6 +75,6 @@ interface EmbyApi {
 
     companion object {
         const val MEDIA_ITEM_FIELDS =
-            "Overview,PrimaryImageAspectRatio,ImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesName,SeasonName,IndexNumber,ParentIndexNumber"
+            "Overview,PrimaryImageAspectRatio,ImageTags,BackdropImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesName,SeasonName,IndexNumber,ParentIndexNumber"
     }
 }

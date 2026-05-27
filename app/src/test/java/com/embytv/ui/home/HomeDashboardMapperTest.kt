@@ -1,6 +1,7 @@
 package com.embytv.ui.home
 
 import com.embytv.domain.model.EmbyHomeDashboard
+import com.embytv.domain.model.EmbyLibraryLatestSection
 import com.embytv.domain.model.EmbyLibrarySummary
 import com.embytv.domain.model.MediaItemSummary
 import org.junit.Assert.assertEquals
@@ -32,6 +33,8 @@ class HomeDashboardMapperTest {
                         imageUrl = "https://example.test/episode.jpg",
                         seriesName = "真实剧集",
                         seasonName = "Season 1",
+                        parentIndexNumber = 1,
+                        indexNumber = 1,
                         runTimeTicks = 10_000,
                         playbackPositionTicks = 2_500,
                         playedPercentage = 25.0,
@@ -48,9 +51,60 @@ class HomeDashboardMapperTest {
         assertEquals("https://example.test/library.jpg", dashboard.libraries.first().imageUrl)
         assertEquals(1, dashboard.continueWatching.size)
         assertEquals("第 1 集", dashboard.continueWatching.first().title)
-        assertEquals("真实剧集", dashboard.continueWatching.first().subtitle)
+        assertEquals("真实剧集 · S01E01", dashboard.continueWatching.first().subtitle)
         assertEquals(0.25f, dashboard.continueWatching.first().progressFraction)
         assertEquals("Episode", dashboard.continueWatching.first().badge)
+    }
+
+    @Test
+    fun mapsLibraryLatestSectionsWithRealThumbnailsAndEpisodeContext() {
+        val dashboard = HomeDashboardMapper.map(
+            EmbyHomeDashboard(
+                libraries = listOf(
+                    EmbyLibrarySummary(
+                        id = "library-1",
+                        name = "电视剧",
+                        type = "CollectionFolder",
+                        collectionType = "tvshows",
+                        itemCount = 88,
+                        imageUrl = "https://example.test/library.jpg",
+                    ),
+                ),
+                libraryLatestSections = listOf(
+                    EmbyLibraryLatestSection(
+                        library = EmbyLibrarySummary(
+                            id = "library-1",
+                            name = "电视剧",
+                            type = "CollectionFolder",
+                            collectionType = "tvshows",
+                            itemCount = 88,
+                            imageUrl = "https://example.test/library.jpg",
+                        ),
+                        items = listOf(
+                            MediaItemSummary(
+                                id = "episode-2",
+                                name = "第 2 集",
+                                type = "Episode",
+                                overview = null,
+                                imageUrl = "https://example.test/poster.jpg",
+                                thumbImageUrl = "https://example.test/thumb.jpg",
+                                backdropImageUrl = "https://example.test/backdrop.jpg",
+                                seriesName = "真实剧集",
+                                seasonName = "第一季",
+                                parentIndexNumber = 1,
+                                indexNumber = 2,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(1, dashboard.libraryLatestSections.size)
+        assertEquals("电视剧 · 最新入库", dashboard.libraryLatestSections.single().title)
+        assertEquals("episode-2", dashboard.libraryLatestSections.single().items.single().id)
+        assertEquals("https://example.test/thumb.jpg", dashboard.libraryLatestSections.single().items.single().imageUrl)
+        assertEquals("真实剧集 · S01E02", dashboard.libraryLatestSections.single().items.single().subtitle)
     }
 
     @Test
