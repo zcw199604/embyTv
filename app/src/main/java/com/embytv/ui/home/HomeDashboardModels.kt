@@ -1,8 +1,11 @@
 package com.embytv.ui.home
 
 import com.embytv.domain.model.EmbyHomeDashboard
+import com.embytv.domain.model.EmbyFavoriteDashboard
 import com.embytv.domain.model.EmbyLibraryContent
 import com.embytv.domain.model.MediaItemSummary
+
+const val FAVORITES_NAVIGATION_ID = "favorites"
 
 data class HomeNavigationItem(
     val id: String,
@@ -44,6 +47,28 @@ data class HomeDashboardUiModel(
     val mediaSectionTitle: String,
 )
 
+enum class FavoriteCategory {
+    Movie,
+    Series,
+}
+
+data class FavoriteCategoryTabUiModel(
+    val category: FavoriteCategory,
+    val title: String,
+    val countLabel: String,
+    val selected: Boolean,
+)
+
+data class FavoriteDashboardUiModel(
+    val title: String,
+    val categoryTabs: List<FavoriteCategoryTabUiModel>,
+    val items: List<MediaCardUiModel>,
+    val emptyTitle: String,
+    val emptySubtitle: String,
+) {
+    val isEmpty: Boolean = items.isEmpty()
+}
+
 data class DrawerUiState(
     val isOpen: Boolean = false,
     val restoreMenuFocus: Boolean = false,
@@ -68,6 +93,41 @@ data class LibraryContentUiState(
     fun close(): LibraryContentUiState = LibraryContentUiState()
 }
 
+data class FavoriteContentUiState(
+    val isOpen: Boolean = false,
+    val selectedCategory: FavoriteCategory = FavoriteCategory.Movie,
+    val dashboard: EmbyFavoriteDashboard = EmbyFavoriteDashboard(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+) {
+    fun openLoading(): FavoriteContentUiState = copy(
+        isOpen = true,
+        isLoading = true,
+        errorMessage = null,
+    )
+
+    fun loaded(dashboard: EmbyFavoriteDashboard): FavoriteContentUiState = copy(
+        isOpen = true,
+        dashboard = dashboard,
+        isLoading = false,
+        errorMessage = null,
+    )
+
+    fun failed(message: String): FavoriteContentUiState = copy(
+        isOpen = true,
+        isLoading = false,
+        errorMessage = message,
+    )
+
+    fun select(category: FavoriteCategory): FavoriteContentUiState = copy(selectedCategory = category)
+
+    fun close(): FavoriteContentUiState = copy(
+        isOpen = false,
+        isLoading = false,
+        errorMessage = null,
+    )
+}
+
 object HomeDashboardMapper {
     fun mapMediaItem(item: MediaItemSummary): MediaCardUiModel = item.toMediaCard()
 
@@ -78,7 +138,14 @@ object HomeDashboardMapper {
             dashboard.latestItems
         }
         return HomeDashboardUiModel(
-            navigationItems = dashboard.libraries.map { library ->
+            navigationItems = listOf(
+                HomeNavigationItem(
+                    id = FAVORITES_NAVIGATION_ID,
+                    title = "收藏",
+                    enabled = true,
+                    disabledReason = null,
+                ),
+            ) + dashboard.libraries.map { library ->
                 HomeNavigationItem(
                     id = library.id,
                     title = library.name.ifBlank { library.collectionType ?: "媒体库" },
@@ -172,4 +239,49 @@ object HomeDashboardMapper {
         if (runtime <= 0L) return 0f
         return (playbackPositionTicks.toFloat() / runtime.toFloat()).coerceIn(0f, 1f)
     }
+}
+
+object HomeFavoritesMapper {
+    fun map(
+        dashboard: EmbyFavoriteDashboard,
+        selectedCategory: FavoriteCategory,
+    ): FavoriteDashboardUiModel {
+        val sourceItems = when (selectedCategory) {
+            FavoriteCategory.Movie -> dashboard.movies
+            FavoriteCategory.Series -> dashboard.series
+        }
+        return FavoriteDashboardUiModel(
+            title = when (selectedCategory) {
+                FavoriteCategory.Movie -> "收藏电影"
+                FavoriteCategory.Series -> "收藏电视剧"
+            },
+            categoryTabs = listOf(
+                FavoriteCategoryTabUiModel(
+                    category = FavoriteCategory.Movie,
+                    title = "电影",
+                    countLabel = dashboard.movies.size.toMovieCountLabel(),
+                    selected = selectedCategory == FavoriteCategory.Movie,
+                ),
+                FavoriteCategoryTabUiModel(
+                    category = FavoriteCategory.Series,
+                    title = "电视剧",
+                    countLabel = dashboard.series.size.toSeriesCountLabel(),
+                    selected = selectedCategory == FavoriteCategory.Series,
+                ),
+            ),
+            items = sourceItems.map { HomeDashboardMapper.mapMediaItem(it) },
+            emptyTitle = when (selectedCategory) {
+                FavoriteCategory.Movie -> "还没有收藏电影"
+                FavoriteCategory.Series -> "还没有收藏电视剧"
+            },
+            emptySubtitle = when (selectedCategory) {
+                FavoriteCategory.Movie -> "收藏电影后会显示在这里。"
+                FavoriteCategory.Series -> "收藏电视剧或单集后会按剧集汇总显示在这里。"
+            },
+        )
+    }
+
+    private fun Int.toMovieCountLabel(): String = "$this 部电影"
+
+    private fun Int.toSeriesCountLabel(): String = "$this 部剧集"
 }

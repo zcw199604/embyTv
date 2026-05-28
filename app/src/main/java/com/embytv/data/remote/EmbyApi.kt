@@ -29,6 +29,12 @@ interface EmbyApi {
         @Query("Recursive") recursive: Boolean = true,
         @Query("IncludeItemTypes") includeItemTypes: String = "Movie,Episode",
         @Query("Fields") fields: String = "Overview,PrimaryImageAspectRatio,ImageTags",
+        @Query("Filters") filters: String? = null,
+        @Query("StartIndex") startIndex: Int = 0,
+        @Query("Limit") limit: Int? = null,
+        @Query("SortBy") sortBy: String? = null,
+        @Query("SortOrder") sortOrder: String? = null,
+        @Query("EnableUserData") enableUserData: Boolean = true,
     ): EmbyItemsResponse
 
     @GET("Users/{userId}/Views")

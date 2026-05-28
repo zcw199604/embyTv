@@ -16,7 +16,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,6 +74,10 @@ fun HomeScreen(
     } else {
         HomeDashboardScreen(
             state = state,
+            onOpenFavorites = viewModel::openFavorites,
+            onCloseFavorites = viewModel::closeFavorites,
+            onSelectFavoriteCategory = viewModel::selectFavoriteCategory,
+            onRetryFavorites = viewModel::retryFavorites,
             onOpenLibrary = viewModel::openLibrary,
             onCloseLibrary = viewModel::closeLibrary,
             onRetryLibrary = viewModel::retryLibrary,
@@ -87,6 +93,10 @@ fun HomeScreen(
 @Composable
 private fun HomeDashboardScreen(
     state: HomeUiState,
+    onOpenFavorites: () -> Unit,
+    onCloseFavorites: () -> Unit,
+    onSelectFavoriteCategory: (FavoriteCategory) -> Unit,
+    onRetryFavorites: () -> Unit,
     onOpenLibrary: (String) -> Unit,
     onCloseLibrary: () -> Unit,
     onRetryLibrary: () -> Unit,
@@ -129,7 +139,16 @@ private fun HomeDashboardScreen(
                     ),
                 ),
         )
-        if (state.libraryContent.isOpen) {
+        if (state.favoriteContent.isOpen) {
+            FavoriteContentScreen(
+                state = state.favoriteContent,
+                onBack = onCloseFavorites,
+                onRetry = onRetryFavorites,
+                onSelectCategory = onSelectFavoriteCategory,
+                onPlay = onPlay,
+                onUnsupported = { hintMessage = it },
+            )
+        } else if (state.libraryContent.isOpen) {
             LibraryContentScreen(
                 state = state.libraryContent,
                 onBack = onCloseLibrary,
@@ -150,7 +169,7 @@ private fun HomeDashboardScreen(
             item {
                 TopChromeBar(
                     title = "EMBY",
-                    subtitle = "Subtitles: ON · v0.1.0",
+                    subtitle = "Subtitles: ON · v0.2.0",
                     onMenuClick = { drawerState = drawerState.open() },
                     menuFocusRequester = menuFocusRequester,
                 )
@@ -238,12 +257,154 @@ private fun HomeDashboardScreen(
             onClose = { drawerState = drawerState.close() },
             onItemClick = { item ->
                 if (item.enabled) {
-                    onOpenLibrary(item.id)
+                    if (item.id == FAVORITES_NAVIGATION_ID) {
+                        onOpenFavorites()
+                    } else {
+                        onOpenLibrary(item.id)
+                    }
                     drawerState = drawerState.close()
                 }
             },
             onUnsupported = { hintMessage = it },
         )
+    }
+}
+
+@Composable
+private fun FavoriteContentScreen(
+    state: FavoriteContentUiState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onSelectCategory: (FavoriteCategory) -> Unit,
+    onPlay: (MediaItemSummary) -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    val backFocusRequester = remember { FocusRequester() }
+    val uiModel = remember(state.dashboard, state.selectedCategory) {
+        HomeFavoritesMapper.map(state.dashboard, state.selectedCategory)
+    }
+    val mediaItems = remember(state.dashboard, state.selectedCategory) {
+        when (state.selectedCategory) {
+            FavoriteCategory.Movie -> state.dashboard.movies
+            FavoriteCategory.Series -> state.dashboard.series
+        }
+    }
+    BackHandler(enabled = true, onBack = onBack)
+    LaunchedEffect(Unit) {
+        backFocusRequester.requestFocus()
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = CinematicGlassSpacing.SafeAreaX,
+                vertical = CinematicGlassSpacing.SafeAreaY,
+            ),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RoundIconButton(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "返回首页",
+                        onClick = onBack,
+                        modifier = Modifier.focusRequester(backFocusRequester),
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = uiModel.title,
+                            color = CinematicGlassColors.OnSurface,
+                            fontSize = 34.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = state.favoriteStatusLabel(),
+                            color = CinematicGlassColors.OnSurfaceVariant,
+                            fontSize = 14.sp,
+                        )
+                    }
+                }
+                if (state.errorMessage != null) {
+                    PrimaryTvButton(
+                        text = "重试",
+                        icon = Icons.Filled.Refresh,
+                        onClick = onRetry,
+                    )
+                }
+            }
+        }
+
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                uiModel.categoryTabs.forEach { tab ->
+                    PrimaryTvButton(
+                        text = "${if (tab.selected) "当前 " else ""}${tab.title} · ${tab.countLabel}",
+                        icon = when (tab.category) {
+                            FavoriteCategory.Movie -> Icons.Filled.Movie
+                            FavoriteCategory.Series -> Icons.Filled.Tv
+                        },
+                        onClick = { onSelectCategory(tab.category) },
+                    )
+                }
+            }
+        }
+
+        when {
+            state.isLoading -> item { LibraryStatePanel(title = "正在加载收藏", subtitle = "正在从 Emby 获取你的收藏资源。") }
+            state.errorMessage != null -> item { LibraryStatePanel(title = "收藏加载失败", subtitle = state.errorMessage) }
+            uiModel.isEmpty -> item { LibraryStatePanel(title = uiModel.emptyTitle, subtitle = uiModel.emptySubtitle) }
+            else -> items(mediaItems.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
+                FavoriteGridRow(
+                    items = rowItems,
+                    cards = uiModel.items,
+                    onPlay = onPlay,
+                    onUnsupported = onUnsupported,
+                )
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(108.dp))
+        }
+    }
+}
+
+@Composable
+private fun FavoriteGridRow(
+    items: List<MediaItemSummary>,
+    cards: List<MediaCardUiModel>,
+    onPlay: (MediaItemSummary) -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap),
+    ) {
+        items.forEach { item ->
+            val card = cards.firstOrNull { it.id == item.id } ?: HomeDashboardMapper.mapMediaItem(item)
+            MediaPosterCard(
+                card = card,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    if (item.type.equals("Movie", ignoreCase = true) || item.type.equals("Episode", ignoreCase = true)) {
+                        onPlay(item)
+                    } else {
+                        onUnsupported("剧集详情暂未支持")
+                    }
+                },
+            )
+        }
+        repeat(5 - items.size) {
+            Spacer(modifier = Modifier.weight(1f))
+        }
     }
 }
 
@@ -384,6 +545,12 @@ private fun LibraryContentUiState.statusLabel(): String {
         else -> "资源"
     }
     return "${content.items.size} 个$type"
+}
+
+private fun FavoriteContentUiState.favoriteStatusLabel(): String {
+    if (isLoading) return "正在加载"
+    errorMessage?.let { return "加载失败" }
+    return "${dashboard.movies.size} 部电影 · ${dashboard.series.size} 部剧集"
 }
 
 @Composable

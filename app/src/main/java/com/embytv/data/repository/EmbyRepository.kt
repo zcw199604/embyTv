@@ -9,6 +9,7 @@ import com.embytv.data.remote.dto.EmbyPlaybackProgressRequest
 import com.embytv.data.remote.dto.EmbyPlaybackStartRequest
 import com.embytv.data.remote.dto.EmbyPlaybackStoppedRequest
 import com.embytv.domain.model.EmbyCredentialStore
+import com.embytv.domain.model.EmbyFavoriteDashboard
 import com.embytv.domain.model.EmbyHomeDashboard
 import com.embytv.domain.model.EmbyLibraryContent
 import com.embytv.domain.model.EmbyLibrarySummary
@@ -175,6 +176,33 @@ class EmbyRepository(
         }
     }
 
+    suspend fun loadFavoriteDashboard(session: EmbySession, deviceId: String): Result<EmbyFavoriteDashboard> =
+        withContext(ioDispatcher) {
+            runCatching {
+                val api = apiFactory.create(session.serverUrl, session.accessToken)
+                val items = api.getItems(
+                    authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                    userId = session.userId,
+                    recursive = true,
+                    includeItemTypes = "Movie,Series,Episode",
+                    fields = com.embytv.data.remote.EmbyApi.MEDIA_ITEM_FIELDS,
+                    filters = "IsFavorite",
+                    startIndex = 0,
+                    limit = FAVORITE_CONTENT_LIMIT,
+                    sortBy = "DateCreated",
+                    sortOrder = "Descending",
+                    enableUserData = true,
+                ).items
+                EmbyFavoriteDashboard(
+                    movies = items
+                        .filter { it.type.equals("Movie", ignoreCase = true) }
+                        .mapNotNull { it.toMediaItemSummary(session.serverUrl) },
+                    series = items.toFavoriteSeriesSummaries(session.serverUrl),
+                    totalCount = items.size,
+                )
+            }
+        }
+
     fun createPlaybackSource(session: EmbySession, item: MediaItemSummary): PlaybackSource =
         PlaybackSource(
             itemId = item.id,
@@ -279,7 +307,7 @@ class EmbyRepository(
 
     private fun buildAuthorizationHeader(deviceId: String, accessToken: String? = null): String {
         return buildString {
-            append("MediaBrowser Client=\"EmbyTv\", Device=\"Android TV\", DeviceId=\"$deviceId\", Version=\"0.1.0\"")
+            append("MediaBrowser Client=\"EmbyTv\", Device=\"Android TV\", DeviceId=\"$deviceId\", Version=\"0.2.0\"")
             if (!accessToken.isNullOrBlank()) {
                 append(", Token=\"")
                 append(accessToken)
@@ -378,6 +406,60 @@ class EmbyRepository(
                 )
             }
     }
+
+    private fun List<EmbyItemDto>.toFavoriteSeriesSummaries(serverUrl: String): List<MediaItemSummary> {
+        val directSeries = filter { item -> item.type.equals("Series", ignoreCase = true) }
+            .mapNotNull { item -> item.toMediaItemSummary(serverUrl)?.withNonBlankTitle() }
+        val directSeriesIds = directSeries.map { it.id }.toSet()
+        val episodeSeries = filter { item ->
+            item.type.equals("Episode", ignoreCase = true) &&
+                (!item.seriesId.isNullOrBlank() || !item.seriesName.isNullOrBlank())
+        }
+            .groupBy { item -> item.seriesId?.takeIf { it.isNotBlank() } ?: item.seriesName.orEmpty() }
+            .values
+            .mapNotNull { group ->
+                val seed = group.firstOrNull() ?: return@mapNotNull null
+                val seriesItemId = seed.seriesId?.takeIf { it.isNotBlank() }
+                val seriesId = seriesItemId ?: seed.seriesName?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                if (seriesId in directSeriesIds) return@mapNotNull null
+                val seriesName = seed.seriesName?.takeIf { it.isNotBlank() } ?: seriesId
+                MediaItemSummary(
+                    id = seriesId,
+                    name = seriesName,
+                    type = "Series",
+                    overview = seed.overview,
+                    imageUrl = seriesItemId?.let { itemId ->
+                        streamUrlBuilder.buildPrimaryImageUrl(
+                            serverUrl = serverUrl,
+                            itemId = itemId,
+                            tag = seed.seriesPrimaryImageTag,
+                            allowUntagged = true,
+                        )
+                    } ?: seed.primaryImageUrl(serverUrl),
+                    thumbImageUrl = seed.thumbImageUrl(serverUrl),
+                    backdropImageUrl = seed.backdropImageUrl(serverUrl),
+                    seriesId = seriesId,
+                    seriesName = seriesName,
+                    runTimeTicks = null,
+                    playbackPositionTicks = 0L,
+                    playedPercentage = null,
+                    productionYear = seed.productionYear,
+                    unplayedItemCount = group.mapNotNull { it.userData?.unplayedItemCount }.maxOrNull(),
+                    childCount = group.mapNotNull { it.childCount }.maxOrNull(),
+                    recursiveItemCount = group.mapNotNull { it.recursiveItemCount }.maxOrNull(),
+                    dateCreated = group.mapNotNull { it.dateCreated }.maxOrNull(),
+                )
+            }
+        return directSeries + episodeSeries
+    }
+
+    private fun MediaItemSummary.withNonBlankTitle(): MediaItemSummary =
+        if (name.isNotBlank()) {
+            this
+        } else {
+            copy(name = seriesName?.takeIf { it.isNotBlank() } ?: id)
+        }
 
     private fun EmbyItemDto.primaryImageUrl(serverUrl: String): String? {
         val id = id ?: return null
@@ -501,6 +583,7 @@ class EmbyRepository(
     private companion object {
         const val LIBRARY_LATEST_LIMIT = 8
         const val LIBRARY_CONTENT_LIMIT = 60
+        const val FAVORITE_CONTENT_LIMIT = 60
     }
 }
 

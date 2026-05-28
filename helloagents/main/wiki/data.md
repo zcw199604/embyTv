@@ -70,6 +70,18 @@
 | library | EmbyLibrarySummary | `Users/{userId}/Views` | 当前媒体库 |
 | items | List<MediaItemSummary> | `Users/{userId}/Items?ParentId=...&StartIndex=0&Limit=60` | 媒体库首屏资源列表；movies 为 Movie，tvshows 为 Series |
 
+### EmbyFavoriteDashboard
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| movies | List<MediaItemSummary> | `Users/{userId}/Items?Filters=IsFavorite&IncludeItemTypes=Movie,Series,Episode` | 收藏电影列表 |
+| series | List<MediaItemSummary> | 同上 | 收藏电视剧列表；Series 直接保留，Episode 按 `SeriesId/SeriesName` 聚合 |
+| totalCount | Int | 同上 | 本次收藏查询返回条目数 |
+
+收藏展示规则:
+- 每个收藏卡片必须有图片区域和资源名字；缺图片时 UI 显示占位。
+- 资源名字优先使用 `name`，电视剧聚合优先使用 `seriesName`，仍为空时用条目 ID 兜底。
+- 电视剧卡片可使用 `unplayedItemCount` 显示“剩 n 集”角标。
+
 ### EmbyHomeDashboard
 | 字段 | 类型 | 来源 | 说明 |
 |------|------|------|------|

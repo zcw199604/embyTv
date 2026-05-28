@@ -6,7 +6,7 @@
 ## 模块概述
 - **职责:** Setup 页面负责 Emby 连接，Home 页面负责媒体中心展示和播放入口，Player 页面负责 Media3、Compose OSD 与 AkDanmaku 的组合展示。
 - **状态:** 🚧开发中
-- **最后更新:** 2026-05-27
+- **最后更新:** 2026-05-28
 
 ## 规范
 
@@ -81,6 +81,16 @@ Emby 登录成功后：
 - Back 或顶部返回按钮返回首页。
 - Movie/Episode 卡片 OK 进入播放；Series 详情暂未实现时显示明确提示，不允许空响应。
 
+#### 场景: 收藏资源页
+用户在抽屉选择“收藏”后：
+- 进入 `FavoriteContentScreen`，顶部展示返回按钮、收藏分组标题和电影/剧集数量。
+- 页面提供“电影”和“电视剧”两个可聚焦切换按钮。
+- 电影分组展示收藏 Movie；电视剧分组展示收藏 Series，以及由收藏 Episode 聚合出的 Series。
+- 每个收藏媒体卡片必须显示图片区域和资源名字；缺图片时使用占位图，名字缺失时使用剧名或条目 ID 兜底。
+- Movie 卡片 OK 进入播放；Series 详情暂未实现时显示明确提示，不允许空响应。
+- 页面提供加载、空状态、错误状态和遥控器可聚焦的重试按钮。
+- Back 或顶部返回按钮返回首页。
+
 #### 场景: 播放 OSD
 播放页进入后：
 - 点击媒体后先读取 `Items/{itemId}/PlaybackInfo`，`PlaybackSource.details` 携带真实媒体源和音视频/字幕流信息。
@@ -116,7 +126,7 @@ OSD 显示后：
 无外部 API。
 
 ## 数据模型
-使用 `HomeUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`HomeDashboardUiModel`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource` 和 `PlaybackDetails`。
+使用 `HomeUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`EmbyFavoriteDashboard`、`HomeDashboardUiModel`、`FavoriteContentUiState`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource` 和 `PlaybackDetails`。
 
 ## 依赖
 - data
@@ -127,6 +137,7 @@ OSD 显示后：
 - NanoHTTPD
 
 ## 变更历史
+- [202605281045_favorite_resources_by_type](../../history/2026-05/202605281045_favorite_resources_by_type/) - 新增收藏页入口、电影/电视剧切换和遥控器返回路径。
 - [202605272217_library_browse_series_grouping](../../history/2026-05/202605272217_library_browse_series_grouping/) - 修复 Emby 图片兜底，新增媒体库列表页，剧集库按 Series 展示并显示剩余集数角标。
 - [202605272133_emby_playback_reporting](../../history/2026-05/202605272133_emby_playback_reporting/) - 播放页接入 Emby 播放状态上报。
 - [202605272047_home_library_latest_sections](../../history/2026-05/202605272047_home_library_latest_sections/) - 首页媒体库真实封面、继续观看剧集信息和按库最新资源分区。

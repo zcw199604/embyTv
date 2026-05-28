@@ -4,9 +4,9 @@
 封装 Emby API、DTO、Repository、凭证存储与播放地址构造。
 
 ## 模块概述
-- **职责:** Retrofit 接口定义、Emby 登录、首页 Dashboard 聚合、播放详情读取、播放地址构造。
+- **职责:** Retrofit 接口定义、Emby 登录、首页 Dashboard 聚合、收藏聚合、播放详情读取、播放地址构造。
 - **状态:** 🚧开发中
-- **最后更新:** 2026-05-27
+- **最后更新:** 2026-05-28
 
 ## 规范
 
@@ -34,6 +34,14 @@ Emby 返回用户 ID 和访问令牌后：
 - 调用 `Users/{userId}/Items?ParentId=...&StartIndex=0&Limit=60` 获取首屏资源。
 - movies 使用 `IncludeItemTypes=Movie`，tvshows 使用 `IncludeItemTypes=Series`，未知库使用 `Movie,Series`。
 - 不做全库 Episode 扫描计算剩余集数，优先使用 Emby 返回的 `UserData.UnplayedItemCount`。
+
+#### 场景: 收藏资源聚合
+用户进入收藏页后：
+- 调用 `Users/{userId}/Items?Filters=IsFavorite&IncludeItemTypes=Movie,Series,Episode&StartIndex=0&Limit=60` 获取收藏首屏。
+- Movie 直接进入电影收藏分组。
+- Series 直接进入电视剧收藏分组。
+- Episode 按 `SeriesId` 或 `SeriesName` 聚合为 Series，避免同一剧集重复卡片。
+- 聚合卡片保留图片 URL、剧集名字和 `UserData.UnplayedItemCount`；缺少名字时用条目 ID 兜底。
 
 #### 场景: 图片兜底
 展示媒体库或媒体卡片时：
@@ -63,6 +71,7 @@ Emby 返回用户 ID 和访问令牌后：
 - domain
 
 ## 变更历史
+- [202605281045_favorite_resources_by_type](../../history/2026-05/202605281045_favorite_resources_by_type/) - 新增收藏资源查询和电影/电视剧聚合模型。
 - [202605272217_library_browse_series_grouping](../../history/2026-05/202605272217_library_browse_series_grouping/) - 增加图片字段兜底、媒体库资源列表查询和 tvshows Series 聚合。
 - [202605271602_emby_real_data_replacement](../../history/2026-05/202605271602_emby_real_data_replacement/) - 首页和播放器可见数据替换为 Emby 真实 API 数据。
 - [202605271514_emby_server_mobile_sync](../../history/2026-05/202605271514_emby_server_mobile_sync/) - 保存 Emby token 凭证和用户名展示字段，不保存密码。

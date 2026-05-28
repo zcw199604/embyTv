@@ -43,6 +43,12 @@ data class EmbyLibraryContent(
     val items: List<MediaItemSummary>,
 )
 
+data class EmbyFavoriteDashboard(
+    val movies: List<MediaItemSummary> = emptyList(),
+    val series: List<MediaItemSummary> = emptyList(),
+    val totalCount: Int = 0,
+)
+
 data class EmbyHomeDashboard(
     val libraries: List<EmbyLibrarySummary> = emptyList(),
     val resumeItems: List<MediaItemSummary> = emptyList(),

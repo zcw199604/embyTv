@@ -12,6 +12,7 @@ data class HomeUiState(
     val session: EmbySession? = null,
     val dashboard: EmbyHomeDashboard = EmbyHomeDashboard(),
     val libraryContent: LibraryContentUiState = LibraryContentUiState(),
+    val favoriteContent: FavoriteContentUiState = FavoriteContentUiState(),
 )
 
 data class MobileSetupSyncUiState(

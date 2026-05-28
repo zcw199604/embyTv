@@ -8,6 +8,7 @@
 
 | 时间戳 | 功能名称 | 类型 | 状态 | 方案包路径 |
 |--------|----------|------|------|------------|
+| 202605281045 | favorite_resources_by_type | 功能 | ✅已完成 | [202605281045_favorite_resources_by_type](2026-05/202605281045_favorite_resources_by_type/) |
 | 202605272217 | library_browse_series_grouping | 功能 | ✅已完成 | [202605272217_library_browse_series_grouping](2026-05/202605272217_library_browse_series_grouping/) |
 | 202605272133 | emby_playback_reporting | 功能 | ✅已完成 | [202605272133_emby_playback_reporting](2026-05/202605272133_emby_playback_reporting/) |
 | 202605272047 | home_library_latest_sections | 功能 | ✅已完成 | [202605272047_home_library_latest_sections](2026-05/202605272047_home_library_latest_sections/) |
@@ -23,6 +24,7 @@
 
 ### 2026-05
 
+- [202605281045_favorite_resources_by_type](2026-05/202605281045_favorite_resources_by_type/) - 新增收藏资源页，按电影/电视剧展示收藏内容，收藏单集聚合为剧集卡片。
 - [202605272217_library_browse_series_grouping](2026-05/202605272217_library_browse_series_grouping/) - 修复媒体库/电影/剧集封面兜底，新增媒体库列表页，剧集库按 Series 展示并显示剩余集数角标。
 - [202605272133_emby_playback_reporting](2026-05/202605272133_emby_playback_reporting/) - 播放开始、进度、暂停/恢复和退出时同步 Emby 后台状态。
 - [202605272047_home_library_latest_sections](2026-05/202605272047_home_library_latest_sections/) - 首页媒体库真实封面、继续观看剧集信息和按库最新资源分区。

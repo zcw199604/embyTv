@@ -333,6 +333,12 @@ private class FakeEmbyApi : EmbyApi {
         recursive: Boolean,
         includeItemTypes: String,
         fields: String,
+        filters: String?,
+        startIndex: Int,
+        limit: Int?,
+        sortBy: String?,
+        sortOrder: String?,
+        enableUserData: Boolean,
     ): EmbyItemsResponse = error("Not used")
 
     override suspend fun getViews(

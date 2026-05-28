@@ -109,6 +109,26 @@ class HomeViewModel(
         loadLibraryContent(session, library)
     }
 
+    fun openFavorites() {
+        val session = _uiState.value.session ?: return
+        loadFavorites(session)
+    }
+
+    fun closeFavorites() {
+        _uiState.update { it.copy(favoriteContent = it.favoriteContent.close(), errorMessage = null) }
+    }
+
+    fun selectFavoriteCategory(category: FavoriteCategory) {
+        _uiState.update {
+            it.copy(favoriteContent = it.favoriteContent.select(category))
+        }
+    }
+
+    fun retryFavorites() {
+        val session = _uiState.value.session ?: return
+        loadFavorites(session)
+    }
+
     override fun onCleared() {
         syncServer.stop()
         super.onCleared()
@@ -201,6 +221,7 @@ class HomeViewModel(
                         session = session,
                         dashboard = dashboard,
                         libraryContent = it.libraryContent.close(),
+                        favoriteContent = it.favoriteContent.close(),
                     )
                 }
             }
@@ -251,6 +272,33 @@ class HomeViewModel(
                                 isLoading = false,
                                 errorMessage = error.message ?: "媒体库加载失败",
                             ),
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun loadFavorites(session: EmbySession) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    favoriteContent = it.favoriteContent.openLoading(),
+                    libraryContent = it.libraryContent.close(),
+                    errorMessage = null,
+                )
+            }
+            repository.loadFavoriteDashboard(session, deviceId)
+                .onSuccess { dashboard ->
+                    _uiState.update {
+                        it.copy(
+                            favoriteContent = it.favoriteContent.loaded(dashboard),
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            favoriteContent = it.favoriteContent.failed(error.message ?: "收藏加载失败"),
                         )
                     }
                 }

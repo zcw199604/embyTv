@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+暂无。
+
+## [0.2.0] - 2026-05-28
+
 ### 新增
 - 落地 Cinematic Glass TV 核心体验: 服务器配置页、首页媒体中心、播放 Compose OSD 与弹幕开关。
 - 新增 Coil Compose 3.4.0 用于 Emby 媒体图片加载。
@@ -14,6 +18,7 @@
 - 新增首页按媒体库展示最新入库资源分区，数据来自每个媒体库的 `ParentId + DateCreated` 查询。
 - 新增 Emby Playback Check-ins 上报，播放开始、进度、暂停/恢复、快退/快进和停止播放会同步到服务器后台。
 - 新增媒体库资源列表页，首页或抽屉对媒体库按 OK/Enter 可进入该库首屏资源列表。
+- 新增收藏资源页，抽屉进入后按电影和电视剧两个维度展示收藏资源，并为每个卡片显示图片区域和资源名字。
 
 ### 变更
 - 验证 `C:\Users\MyPC\.jdks\corretto-17.0.16` 可用于 Gradle，记录当前 Android SDK 路径仍缺失。
@@ -25,6 +30,7 @@
 - 首页媒体库卡片显示真实媒体库名称与封面；继续观看和按库最新资源卡片优先展示 Thumb/Backdrop 缩略图，并为 Episode 展示真实剧名和 SxxExx 信息。
 - 压缩 TV 端 Emby 配置页布局，用户名和密码改为同一行显示，连接按钮文案改为“确定连接”，避免 1080p 电视上底部字段被裁剪。
 - 首页按库最新资源改为使用 `Items/Latest?ParentId=...`；电影库按 Movie 展示，剧集库按 Series 维度展示并显示剩余未播放集数角标。
+- 收藏页使用 `Filters=IsFavorite` 拉取 Movie、Series 和 Episode，Episode 收藏会聚合为 Series 卡片，避免电视剧重复刷屏。
 
 ### 修复
 - 移除 AGP 9 下不再需要的 `org.jetbrains.kotlin.android` 插件配置，避免 Gradle 构建在插件应用阶段失败。

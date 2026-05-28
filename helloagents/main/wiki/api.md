@@ -37,7 +37,7 @@
 ### 媒体列表
 
 #### GET Users/{userId}/Items
-**描述:** 递归获取 Movie 和 Episode 条目。当前不再作为首页首屏数据源，保留为兼容接口；首页改用 `Views`、`Resume`、`Latest` 和按库统计，避免启动时全量拉取大媒体库。
+**描述:** 递归获取媒体条目。当前不再作为首页首屏数据源，保留为兼容接口；首页改用 `Views`、`Resume`、`Latest` 和按库统计，避免启动时全量拉取大媒体库。收藏页使用同一接口的收藏过滤能力。
 
 **请求参数:**
 | 参数名 | 类型 | 必填 | 说明 |
@@ -46,8 +46,32 @@
 | Recursive | boolean | 是 | 当前固定为 true |
 | IncludeItemTypes | string | 是 | 当前为 Movie,Episode |
 | Fields | string | 是 | Overview,PrimaryImageAspectRatio,ImageTags |
+| Filters | string | 否 | 收藏页使用 IsFavorite |
+| StartIndex | int | 否 | 收藏页固定为 0 |
+| Limit | int | 否 | 收藏页固定为 60 |
+| SortBy | string | 否 | 收藏页使用 DateCreated |
+| SortOrder | string | 否 | 收藏页使用 Descending |
+| EnableUserData | boolean | 否 | 收藏页固定 true，读取收藏状态和未播放集数 |
 
 **真实接口探测:** 2026-05-27 使用测试服务器验证通过。`Fields` 已扩展为包含 `PrimaryImageTag`、`ParentThumbItemId`、`ParentThumbImageTag`、`ParentBackdropItemId`、`ParentBackdropImageTags`、`SeriesId`、`SeriesPrimaryImageTag`、`RecursiveItemCount`、`ChildCount`、`DateCreated` 和 `UserData` 等字段，可支撑封面兜底、剧集聚合、未播放集数和播放页标题信息。
+
+#### GET Users/{userId}/Items?Filters=IsFavorite&IncludeItemTypes=Movie,Series,Episode
+**描述:** 获取当前用户收藏资源，用于收藏页按电影/电视剧展示。
+
+**请求参数:**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| Recursive | boolean | 是 | 当前固定为 true |
+| IncludeItemTypes | string | 是 | Movie,Series,Episode |
+| Filters | string | 是 | IsFavorite |
+| StartIndex | int | 是 | 当前固定为 0 |
+| Limit | int | 是 | 当前固定为 60 |
+| SortBy | string | 是 | DateCreated |
+| SortOrder | string | 是 | Descending |
+| EnableUserData | boolean | 是 | true |
+| Fields | string | 是 | 包含图片、剧集、播放进度、未播放计数和 UserData 字段 |
+
+**落地实现:** `EmbyRepository.loadFavoriteDashboard()` 单次请求收藏资源，Movie 直接进入电影分组；Series 直接进入电视剧分组；Episode 按 `SeriesId` 或 `SeriesName` 聚合为 Series 卡片，避免同一剧重复显示。收藏页不在错误文案或日志中输出 token、密码或完整播放 URL。
 
 ### 媒体库视图
 
