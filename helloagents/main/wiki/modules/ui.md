@@ -84,6 +84,7 @@ Emby 登录成功后：
 #### 场景: 媒体详情页
 用户在首页、媒体库列表或收藏页对 Movie/Series 按 OK/Enter 后：
 - 进入 `MediaDetailScreen`，显示真实标题、封面、简介、年份、类型、评分、分级和演员。
+- 详情页需要以独立区域展示“媒体信息”和“演员信息”；媒体信息至少包含 Emby 返回的年份、时长、类型、评分、分级、首播日期、制片方和剧集数量等可用字段，演员信息展示演员名和饰演角色。
 - Movie 详情页提供可聚焦“播放”按钮，OK 后读取 `PlaybackInfo` 并进入播放器。
 - Series 详情页展示可聚焦季列表，每季显示封面、名称、集数和“剩 n 集”角标。
 - 选中某季后展示该季 Episode 列表，Episode 卡片 OK 播放。
@@ -115,6 +116,7 @@ Emby 登录成功后：
 #### 场景: 全局按键契约
 用户使用遥控器时：
 - 方向键优先交给当前聚焦控件处理，根容器不抢占 OSD 内部控件的方向键和 OK/Enter。
+- 通用 `FocusableGlassSurface` 显式处理 `DirectionCenter`、`Enter` 和 `NumPadEnter` 的 KeyUp，聚焦后单次 OK/Enter 即触发可用入口或禁用原因提示。
 - Back 在抽屉打开时关闭抽屉，在媒体库列表页返回首页，在播放 OSD 可见时隐藏 OSD，OSD 隐藏时退出播放页。
 - 禁用入口可显示原因，OK/Enter 不允许空响应。
 
@@ -147,10 +149,14 @@ OSD 显示后：
 - player
 - danmaku
 - Coil Compose
+- Coil Network OkHttp: Coil 3 加载 HTTP/HTTPS Emby 图片 URL 必须显式引入 `io.coil-kt.coil3:coil-network-okhttp`，否则 `AsyncImage` 无网络 fetcher，会统一显示占位图。
 - ZXing Core
 - NanoHTTPD
 
 ## 变更历史
+- [20260528_media_detail_rich_info](../../history/2026-05/20260528_media_detail_rich_info/) - 媒体详情页补齐媒体信息、演员信息和更明显的播放/季列表入口。
+- [202605281928_remote_ok_single_press_fix](../../history/2026-05/202605281928_remote_ok_single_press_fix/) - 在通用可聚焦面板统一处理 TV OK/Enter KeyUp，修复进入详情需按两次确认键的问题。
+- [202605281915_coil_network_images_fix](../../history/2026-05/202605281915_coil_network_images_fix/) - 补齐 Coil 3 OkHttp 网络图片加载依赖，修复 Emby 封面全不显示。
 - [202605281300_media_detail_seasons](../../history/2026-05/202605281300_media_detail_seasons/) - 新增 Movie/Series 详情页、Series 季列表、季内 Episode 列表和详情页遥控器返回层级。
 - [202605281045_favorite_resources_by_type](../../history/2026-05/202605281045_favorite_resources_by_type/) - 新增收藏页入口、电影/电视剧切换和遥控器返回路径。
 - [202605272217_library_browse_series_grouping](../../history/2026-05/202605272217_library_browse_series_grouping/) - 修复 Emby 图片兜底，新增媒体库列表页，剧集库按 Series 展示并显示剩余集数角标。

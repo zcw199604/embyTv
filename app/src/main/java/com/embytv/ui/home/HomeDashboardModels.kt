@@ -81,11 +81,23 @@ data class SeasonCardUiModel(
     val cornerBadge: String? = null,
 )
 
+data class MediaFactUiModel(
+    val label: String,
+    val value: String,
+)
+
+data class CastMemberUiModel(
+    val name: String,
+    val role: String?,
+)
+
 data class MediaDetailUiModel(
     val title: String,
     val overview: String,
     val metadata: String,
     val people: List<String>,
+    val mediaFacts: List<MediaFactUiModel>,
+    val castMembers: List<CastMemberUiModel>,
     val imageUrl: String?,
     val backdropImageUrl: String?,
     val isMovie: Boolean,
@@ -350,6 +362,16 @@ object HomeMediaDetailMapper {
                     val role = person.role?.takeIf { it.isNotBlank() }
                     if (role == null) person.name else "${person.name} 饰 $role"
                 },
+            mediaFacts = detail.mediaFacts(),
+            castMembers = detail.people
+                .filter { person -> person.name.isNotBlank() }
+                .take(12)
+                .map { person ->
+                    CastMemberUiModel(
+                        name = person.name,
+                        role = person.role?.takeIf { it.isNotBlank() },
+                    )
+                },
             imageUrl = detail.item.imageUrl ?: detail.item.thumbImageUrl,
             backdropImageUrl = detail.item.backdropImageUrl ?: detail.item.thumbImageUrl ?: detail.item.imageUrl,
             isMovie = detail.item.type.equals("Movie", ignoreCase = true),
@@ -366,6 +388,25 @@ object HomeMediaDetailMapper {
             communityRating?.let { String.format(Locale.US, "%.1f", it) },
             officialRating?.takeIf { it.isNotBlank() },
         ).joinToString(" · ")
+
+    private fun EmbyMediaDetail.mediaFacts(): List<MediaFactUiModel> =
+        buildList {
+            item.productionYear?.let { add(MediaFactUiModel("年份", it.toString())) }
+            runtimeMinutes()?.let { add(MediaFactUiModel("时长", "$it 分钟")) }
+            genres.takeIf { it.isNotEmpty() }?.let { add(MediaFactUiModel("类型", it.joinToString(" / "))) }
+            communityRating?.let { add(MediaFactUiModel("评分", String.format(Locale.US, "%.1f", it))) }
+            officialRating?.takeIf { it.isNotBlank() }?.let { add(MediaFactUiModel("分级", it)) }
+            premiereDate?.takeIf { it.length >= 10 }?.let { add(MediaFactUiModel("首播", it.take(10))) }
+            studios.takeIf { it.isNotEmpty() }?.let { add(MediaFactUiModel("制片方", it.joinToString(" / "))) }
+            item.recursiveItemCount?.let { add(MediaFactUiModel("总集数", "$it 集")) }
+            item.childCount?.let { add(MediaFactUiModel("季数", "$it 季")) }
+        }
+
+    private fun EmbyMediaDetail.runtimeMinutes(): Long? {
+        val ticks = item.runTimeTicks ?: return null
+        if (ticks <= 0L) return null
+        return (ticks / 600_000_000L).takeIf { it > 0L }
+    }
 
     private fun EmbySeasonSummary.toSeasonCard(): SeasonCardUiModel =
         SeasonCardUiModel(

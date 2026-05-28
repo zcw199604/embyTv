@@ -57,3 +57,5 @@ sequenceDiagram
 | ADR-002 | 使用 TV 本机临时 HTTP 服务完成手机同步 | 2026-05-27 | ✅已采纳 | ui, core/network | [how.md](../history/2026-05/202605271514_emby_server_mobile_sync/how.md#adr-002-使用-tv-本机临时-http-服务完成手机同步) |
 | ADR-003 | 保存用户名展示字段，不保存密码，只用 Emby 访问凭证恢复认证 | 2026-05-27 | ✅已采纳 | data, domain | [how.md](../history/2026-05/202605271514_emby_server_mobile_sync/how.md#adr-003-保存用户名展示字段不保存密码只用-emby-访问凭证恢复认证) |
 | ADR-008 | 详情页采用按需加载而非列表预加载 | 2026-05-28 | ✅已采纳 | data, ui/home | [how.md](../history/2026-05/202605281300_media_detail_seasons/how.md#adr-008-详情页采用按需加载而非列表预加载) |
+| ADR-009 | 使用 Coil 官方 OkHttp 网络模块修复网络图片加载 | 2026-05-28 | ✅已采纳 | build, ui | [how.md](../history/2026-05/202605281915_coil_network_images_fix/how.md#adr-009-使用-coil-官方-okhttp-网络模块修复网络图片加载) |
+| ADR-010 | 在通用可聚焦面板统一处理 TV OK 键 | 2026-05-28 | ✅已采纳 | ui/components | [how.md](../history/2026-05/202605281928_remote_ok_single_press_fix/how.md#adr-010-在通用可聚焦面板统一处理-tv-ok-键) |

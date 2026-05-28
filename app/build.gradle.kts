@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.androidx.tv.material)
     implementation(libs.androidx.tv.foundation)
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.hls)

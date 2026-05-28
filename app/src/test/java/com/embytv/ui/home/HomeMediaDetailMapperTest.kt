@@ -23,6 +23,7 @@ class HomeMediaDetailMapperTest {
                     overview = "真实简介",
                     imageUrl = "https://example.test/movie.jpg",
                     backdropImageUrl = "https://example.test/backdrop.jpg",
+                    runTimeTicks = 7_200_000_0000,
                     productionYear = 2026,
                 ),
                 people = listOf(EmbyPersonSummary(id = "person-1", name = "演员甲", role = "主角", type = "Actor")),
@@ -42,6 +43,10 @@ class HomeMediaDetailMapperTest {
         assertEquals("https://example.test/backdrop.jpg", uiModel.backdropImageUrl)
         assertTrue(uiModel.isMovie)
         assertEquals(emptyList<SeasonCardUiModel>(), uiModel.seasons)
+        assertTrue(uiModel.mediaFacts.any { it.label == "时长" && it.value == "120 分钟" })
+        assertTrue(uiModel.mediaFacts.any { it.label == "制片方" && it.value == "电影公司" })
+        assertEquals("演员甲", uiModel.castMembers.single().name)
+        assertEquals("主角", uiModel.castMembers.single().role)
     }
 
     @Test

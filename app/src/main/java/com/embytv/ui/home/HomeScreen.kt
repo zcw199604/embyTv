@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -738,25 +739,71 @@ private fun MediaDetailContent(
                     color = CinematicGlassColors.OnSurfaceVariant,
                     fontSize = 17.sp,
                     lineHeight = 24.sp,
-                    maxLines = 6,
+                    maxLines = 8,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (uiModel.people.isNotEmpty()) {
-                    Text(
-                        text = uiModel.people.joinToString("  /  "),
-                        color = CinematicGlassColors.OnSurface,
-                        fontSize = 15.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (uiModel.isMovie) {
+                        PrimaryTvButton(
+                            text = "播放",
+                            icon = Icons.Filled.PlayArrow,
+                            onClick = { onPlay(detail.item) },
+                            modifier = Modifier.focusRequester(playFocusRequester),
+                        )
+                    } else {
+                        val firstSeason = detail.seasons.firstOrNull()
+                        PrimaryTvButton(
+                            text = "查看季列表",
+                            icon = Icons.Filled.Tv,
+                            enabled = firstSeason != null,
+                            onClick = { firstSeason?.let(onOpenSeason) },
+                            modifier = Modifier.focusRequester(playFocusRequester),
+                        )
+                    }
                 }
-                if (uiModel.isMovie) {
-                    PrimaryTvButton(
-                        text = "播放",
-                        icon = Icons.Filled.PlayArrow,
-                        onClick = { onPlay(detail.item) },
-                        modifier = Modifier.focusRequester(playFocusRequester),
-                    )
+            }
+        }
+
+        if (uiModel.mediaFacts.isNotEmpty()) {
+            DetailInfoSection(title = "媒体信息") {
+                uiModel.mediaFacts.chunked(4).forEach { rowFacts ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        rowFacts.forEach { fact ->
+                            DetailFactCard(
+                                label = fact.label,
+                                value = fact.value,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        repeat(4 - rowFacts.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
+
+        if (uiModel.castMembers.isNotEmpty()) {
+            DetailInfoSection(title = "演员信息") {
+                uiModel.castMembers.chunked(4).forEach { rowMembers ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        rowMembers.forEach { member ->
+                            DetailCastCard(
+                                name = member.name,
+                                role = member.role,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        repeat(4 - rowMembers.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
                 }
             }
         }
@@ -785,6 +832,86 @@ private fun MediaDetailContent(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DetailInfoSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        SectionHeader(title = title)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun DetailFactCard(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    GlassPanel(modifier = modifier, cornerRadius = 10.dp) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = label,
+                color = CinematicGlassColors.OnSurfaceVariant,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = value,
+                color = CinematicGlassColors.OnSurface,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailCastCard(
+    name: String,
+    role: String?,
+    modifier: Modifier = Modifier,
+) {
+    GlassPanel(modifier = modifier, cornerRadius = 10.dp) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = name,
+                color = CinematicGlassColors.OnSurface,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = role?.let { "饰 $it" } ?: "演员",
+                color = CinematicGlassColors.OnSurfaceVariant,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

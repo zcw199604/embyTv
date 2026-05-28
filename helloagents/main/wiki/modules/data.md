@@ -47,6 +47,7 @@ Emby 返回用户 ID 和访问令牌后：
 用户在 Movie 或 Series 卡片按 OK 后：
 - 调用 `Users/{userId}/Items/{itemId}` 读取详情基础信息。
 - 映射 `Overview`、`People`、`Genres`、`Studios`、`ProductionYear`、`CommunityRating`、`OfficialRating`、图片和播放进度字段。
+- UI 层会将详情聚合结果整理为媒体信息卡片和演员卡片；Repository 不额外扩展详情接口，仍以 Emby 详情接口返回字段为准。
 - Movie 详情不额外加载季列表。
 - Series 详情继续调用 `Shows/{seriesId}/Seasons` 获取季列表，并将 `UserData.UnplayedItemCount > 0` 映射为季角标来源。
 - 不在首页、媒体库列表或收藏页预加载详情，避免首屏请求量扩大。

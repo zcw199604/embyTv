@@ -56,6 +56,11 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -113,6 +118,27 @@ fun FocusableGlassSurface(
         modifier = modifier
             .scale(scale)
             .onFocusChanged { focused = it.isFocused }
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyUp) {
+                    return@onKeyEvent false
+                }
+                when (event.key) {
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                        when {
+                            enabled && onClick != null -> {
+                                onClick()
+                                true
+                            }
+                            disabledReason != null && onDisabledClick != null -> {
+                                onDisabledClick(disabledReason)
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                    else -> false
+                }
+            }
             .focusable(canFocus)
             .then(
                 when {
