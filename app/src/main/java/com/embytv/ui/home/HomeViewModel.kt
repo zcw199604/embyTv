@@ -28,7 +28,6 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
-        startMobileSetupSync()
         restoreSavedCredential()
     }
 
@@ -245,7 +244,10 @@ class HomeViewModel(
         viewModelScope.launch {
             repository.loadSavedCredential()
                 .onSuccess { credential ->
-                    if (credential == null) return@onSuccess
+                    if (credential == null) {
+                        startMobileSetupSync()
+                        return@onSuccess
+                    }
                     deviceId = credential.deviceId
                     val session = EmbySession(
                         serverUrl = credential.serverUrl,
@@ -267,6 +269,9 @@ class HomeViewModel(
                             )
                         }
                     }
+                }
+                .onFailure {
+                    startMobileSetupSync()
                 }
         }
     }

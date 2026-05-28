@@ -59,3 +59,5 @@ sequenceDiagram
 | ADR-008 | 详情页采用按需加载而非列表预加载 | 2026-05-28 | ✅已采纳 | data, ui/home | [how.md](../history/2026-05/202605281300_media_detail_seasons/how.md#adr-008-详情页采用按需加载而非列表预加载) |
 | ADR-009 | 使用 Coil 官方 OkHttp 网络模块修复网络图片加载 | 2026-05-28 | ✅已采纳 | build, ui | [how.md](../history/2026-05/202605281915_coil_network_images_fix/how.md#adr-009-使用-coil-官方-okhttp-网络模块修复网络图片加载) |
 | ADR-010 | 在通用可聚焦面板统一处理 TV OK 键 | 2026-05-28 | ✅已采纳 | ui/components | [how.md](../history/2026-05/202605281928_remote_ok_single_press_fix/how.md#adr-010-在通用可聚焦面板统一处理-tv-ok-键) |
+| ADR-011 | 首页性能优化采用启动顺序调整与受控并发而非本地持久缓存 | 2026-05-28 | ✅已采纳 | ui/home, data/repository | [how.md](../history/2026-05/202605281948_performance_optimization/how.md#adr-011-首页性能优化采用启动顺序调整与受控并发而非本地持久缓存) |
+| ADR-012 | API service 按 baseUrl 和 token 复用 | 2026-05-28 | ✅已采纳 | data/remote | [how.md](../history/2026-05/202605281948_performance_optimization/how.md#adr-012-api-service-按-baseurl-和-token-复用) |

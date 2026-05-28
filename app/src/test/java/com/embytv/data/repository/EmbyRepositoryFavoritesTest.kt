@@ -77,13 +77,13 @@ class EmbyRepositoryFavoritesTest {
         assertEquals(1, dashboard.movies.size)
         assertEquals("movie-1", dashboard.movies.single().id)
         assertEquals("收藏电影", dashboard.movies.single().name)
-        assertEquals("http://emby.test/Items/movie-1/Images/Primary?tag=movie-primary", dashboard.movies.single().imageUrl)
+        assertEquals("http://emby.test/Items/movie-1/Images/Primary?tag=movie-primary&MaxWidth=500&MaxHeight=750&Quality=85", dashboard.movies.single().imageUrl)
 
         assertEquals(listOf("series-raw", "series-episode", "series-fallback"), dashboard.series.map { it.id })
         assertEquals("已收藏剧集", dashboard.series[0].name)
         assertEquals("单集收藏剧", dashboard.series[1].name)
         assertEquals("series-fallback", dashboard.series[2].name)
-        assertEquals("http://emby.test/Items/series-episode/Images/Primary?tag=episode-series-primary", dashboard.series[1].imageUrl)
+        assertEquals("http://emby.test/Items/series-episode/Images/Primary?tag=episode-series-primary&MaxWidth=500&MaxHeight=750&Quality=85", dashboard.series[1].imageUrl)
         assertEquals(5, dashboard.series[0].unplayedItemCount)
         assertNotNull(dashboard.series[1].imageUrl)
     }
@@ -106,7 +106,7 @@ class EmbyRepositoryFavoritesTest {
         val series = dashboard.series.single()
         assertEquals("只有剧名的收藏", series.id)
         assertEquals("只有剧名的收藏", series.name)
-        assertEquals("http://emby.test/Items/episode-only/Images/Primary?tag=episode-primary", series.imageUrl)
+        assertEquals("http://emby.test/Items/episode-only/Images/Primary?tag=episode-primary&MaxWidth=500&MaxHeight=750&Quality=85", series.imageUrl)
     }
 
     private fun favoriteEpisode(id: String, seriesId: String, seriesName: String): EmbyItemDto =

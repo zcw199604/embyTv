@@ -29,6 +29,11 @@ import com.embytv.domain.model.SavedEmbyCredential
 import com.embytv.domain.model.ServerConfig
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -101,59 +106,86 @@ class EmbyRepository(
                     authorization = authorization,
                     userId = session.userId,
                 ).items
-                val libraries = views.mapNotNull { view ->
-                    val id = view.id ?: return@mapNotNull null
-                    val count = api.getItemsByParent(
-                        authorization = authorization,
-                        userId = session.userId,
-                        parentId = id,
-                    ).totalRecordCount
-                    EmbyLibrarySummary(
-                        id = id,
-                        name = view.name.orEmpty(),
-                        type = view.type.orEmpty(),
-                        collectionType = view.collectionType,
-                        itemCount = count,
-                        imageUrl = streamUrlBuilder.buildPrimaryImageUrl(
-                            serverUrl = session.serverUrl,
-                            itemId = id,
-                            tag = view.primaryTag(),
-                        ) ?: streamUrlBuilder.buildPrimaryImageUrl(
-                            serverUrl = session.serverUrl,
-                            itemId = id,
-                            tag = null,
-                            allowUntagged = true,
-                        ),
-                    )
-                }
-                val resume = api.getResumeItems(
-                    authorization = authorization,
-                    userId = session.userId,
-                ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
-                val latest = api.getLatestItems(
-                    authorization = authorization,
-                    userId = session.userId,
-                ).mapNotNull { it.toMediaItemSummary(session.serverUrl) }
-                val libraryLatestSections = libraries.mapNotNull { library ->
-                    val items = loadLatestItemsForLibrary(
-                        api = api,
-                        authorization = authorization,
-                        userId = session.userId,
-                        serverUrl = session.serverUrl,
-                        library = library,
-                    )
-                    if (items.isEmpty()) {
-                        null
-                    } else {
-                        EmbyLibraryLatestSection(library = library, items = items)
+                val dashboardParts = coroutineScope {
+                    val countSemaphore = Semaphore(DASHBOARD_REQUEST_PARALLELISM)
+                    val latestSemaphore = Semaphore(DASHBOARD_REQUEST_PARALLELISM)
+                    val librariesDeferred = async {
+                        views.mapNotNull { view ->
+                            val id = view.id ?: return@mapNotNull null
+                            async {
+                                countSemaphore.withPermit {
+                                    val count = api.getItemsByParent(
+                                        authorization = authorization,
+                                        userId = session.userId,
+                                        parentId = id,
+                                    ).totalRecordCount
+                                    EmbyLibrarySummary(
+                                        id = id,
+                                        name = view.name.orEmpty(),
+                                        type = view.type.orEmpty(),
+                                        collectionType = view.collectionType,
+                                        itemCount = count,
+                                        imageUrl = streamUrlBuilder.buildPrimaryImageUrl(
+                                            serverUrl = session.serverUrl,
+                                            itemId = id,
+                                            tag = view.primaryTag(),
+                                            profile = EmbyImageProfile.Backdrop,
+                                        ) ?: streamUrlBuilder.buildPrimaryImageUrl(
+                                            serverUrl = session.serverUrl,
+                                            itemId = id,
+                                            tag = null,
+                                            allowUntagged = true,
+                                            profile = EmbyImageProfile.Backdrop,
+                                        ),
+                                    )
+                                }
+                            }
+                        }.awaitAll()
                     }
+                    val resumeDeferred = async {
+                        api.getResumeItems(
+                            authorization = authorization,
+                            userId = session.userId,
+                        ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                    }
+                    val latestDeferred = async {
+                        api.getLatestItems(
+                            authorization = authorization,
+                            userId = session.userId,
+                        ).mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                    }
+                    val libraries = librariesDeferred.await()
+                    val libraryLatestSectionsDeferred = libraries.map { library ->
+                        async {
+                            latestSemaphore.withPermit {
+                                val items = loadLatestItemsForLibrary(
+                                    api = api,
+                                    authorization = authorization,
+                                    userId = session.userId,
+                                    serverUrl = session.serverUrl,
+                                    library = library,
+                                )
+                                if (items.isEmpty()) {
+                                    null
+                                } else {
+                                    EmbyLibraryLatestSection(library = library, items = items)
+                                }
+                            }
+                        }
+                    }
+                    DashboardParts(
+                        libraries = libraries,
+                        resumeItems = resumeDeferred.await(),
+                        latestItems = latestDeferred.await(),
+                        libraryLatestSections = libraryLatestSectionsDeferred.awaitAll().filterNotNull(),
+                    )
                 }
 
                 EmbyHomeDashboard(
-                    libraries = libraries,
-                    resumeItems = resume,
-                    latestItems = latest,
-                    libraryLatestSections = libraryLatestSections,
+                    libraries = dashboardParts.libraries,
+                    resumeItems = dashboardParts.resumeItems,
+                    latestItems = dashboardParts.latestItems,
+                    libraryLatestSections = dashboardParts.libraryLatestSections,
                 )
             }
         }
@@ -423,16 +455,18 @@ class EmbyRepository(
                 indexNumber?.let { "第 $it 季" } ?: "Season"
             },
             indexNumber = indexNumber,
-            imageUrl = streamUrlBuilder.buildPrimaryImageUrl(
-                serverUrl = serverUrl,
-                itemId = id,
-                tag = primaryTag(),
-            ) ?: streamUrlBuilder.buildPrimaryImageUrl(
-                serverUrl = serverUrl,
-                itemId = id,
-                tag = null,
-                allowUntagged = true,
-            ),
+                imageUrl = streamUrlBuilder.buildPrimaryImageUrl(
+                    serverUrl = serverUrl,
+                    itemId = id,
+                    tag = primaryTag(),
+                    profile = EmbyImageProfile.Poster,
+                ) ?: streamUrlBuilder.buildPrimaryImageUrl(
+                    serverUrl = serverUrl,
+                    itemId = id,
+                    tag = null,
+                    allowUntagged = true,
+                    profile = EmbyImageProfile.Poster,
+                ),
             episodeCount = childCount,
             unplayedItemCount = count?.takeIf { it > 0 },
         )
@@ -485,6 +519,7 @@ class EmbyRepository(
                         itemId = seriesId,
                         tag = seed.seriesPrimaryImageTag,
                         allowUntagged = true,
+                        profile = EmbyImageProfile.Poster,
                     ),
                     thumbImageUrl = seed.thumbImageUrl(serverUrl),
                     backdropImageUrl = seed.backdropImageUrl(serverUrl),
@@ -530,6 +565,7 @@ class EmbyRepository(
                             itemId = itemId,
                             tag = seed.seriesPrimaryImageTag,
                             allowUntagged = true,
+                            profile = EmbyImageProfile.Poster,
                         )
                     } ?: seed.primaryImageUrl(serverUrl),
                     thumbImageUrl = seed.thumbImageUrl(serverUrl),
@@ -562,12 +598,14 @@ class EmbyRepository(
             serverUrl = serverUrl,
             itemId = id,
             tag = primaryTag(),
+            profile = EmbyImageProfile.Poster,
         ) ?: seriesPrimaryImageUrl(serverUrl)
             ?: streamUrlBuilder.buildPrimaryImageUrl(
                 serverUrl = serverUrl,
                 itemId = id,
                 tag = null,
                 allowUntagged = true,
+                profile = EmbyImageProfile.Poster,
             )
     }
 
@@ -578,6 +616,7 @@ class EmbyRepository(
             itemId = itemId,
             tag = seriesPrimaryImageTag,
             allowUntagged = !seriesPrimaryImageTag.isNullOrBlank(),
+            profile = EmbyImageProfile.Poster,
         )
     }
 
@@ -587,18 +626,21 @@ class EmbyRepository(
             serverUrl = serverUrl,
             itemId = id,
             tag = imageTags?.get("Thumb"),
+            profile = EmbyImageProfile.Thumb,
         ) ?: parentThumbItemId?.takeIf { it.isNotBlank() }?.let { parentId ->
             streamUrlBuilder.buildThumbImageUrl(
                 serverUrl = serverUrl,
                 itemId = parentId,
                 tag = parentThumbImageTag,
                 allowUntagged = !parentThumbImageTag.isNullOrBlank(),
+                profile = EmbyImageProfile.Thumb,
             )
         } ?: streamUrlBuilder.buildThumbImageUrl(
             serverUrl = serverUrl,
             itemId = id,
             tag = null,
             allowUntagged = true,
+            profile = EmbyImageProfile.Thumb,
         )
     }
 
@@ -608,18 +650,21 @@ class EmbyRepository(
             serverUrl = serverUrl,
             itemId = id,
             tag = backdropImageTags.firstOrNull(),
+            profile = EmbyImageProfile.Backdrop,
         ) ?: parentBackdropItemId?.takeIf { it.isNotBlank() }?.let { parentId ->
             streamUrlBuilder.buildBackdropImageUrl(
                 serverUrl = serverUrl,
                 itemId = parentId,
                 tag = parentBackdropImageTags.firstOrNull(),
                 allowUntagged = parentBackdropImageTags.isNotEmpty(),
+                profile = EmbyImageProfile.Backdrop,
             )
         } ?: streamUrlBuilder.buildBackdropImageUrl(
             serverUrl = serverUrl,
             itemId = id,
             tag = null,
             allowUntagged = true,
+            profile = EmbyImageProfile.Backdrop,
         )
     }
 
@@ -679,7 +724,15 @@ class EmbyRepository(
         const val LIBRARY_LATEST_LIMIT = 8
         const val LIBRARY_CONTENT_LIMIT = 60
         const val FAVORITE_CONTENT_LIMIT = 60
+        const val DASHBOARD_REQUEST_PARALLELISM = 4
     }
 }
+
+private data class DashboardParts(
+    val libraries: List<EmbyLibrarySummary>,
+    val resumeItems: List<MediaItemSummary>,
+    val latestItems: List<MediaItemSummary>,
+    val libraryLatestSections: List<EmbyLibraryLatestSection>,
+)
 
 internal fun Long.toEmbyTicks(): Long = coerceAtLeast(0L) * 10_000L

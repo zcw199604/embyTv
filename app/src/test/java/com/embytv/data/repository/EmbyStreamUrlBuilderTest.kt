@@ -53,4 +53,27 @@ class EmbyStreamUrlBuilderTest {
             ),
         )
     }
+
+    @Test
+    fun buildImageUrls_addsImageProfileSizing() {
+        assertEquals(
+            "http://127.0.0.1:8096/Items/item/Images/Primary?tag=tag-value&MaxWidth=500&MaxHeight=750&Quality=85",
+            builder.buildPrimaryImageUrl(
+                serverUrl = "http://127.0.0.1:8096",
+                itemId = "item",
+                tag = "tag-value",
+                profile = EmbyImageProfile.Poster,
+            ),
+        )
+        assertEquals(
+            "http://127.0.0.1:8096/Items/item/Images/Backdrop/0?MaxWidth=960&MaxHeight=540&Quality=85",
+            builder.buildBackdropImageUrl(
+                serverUrl = "http://127.0.0.1:8096",
+                itemId = "item",
+                tag = null,
+                allowUntagged = true,
+                profile = EmbyImageProfile.Backdrop,
+            ),
+        )
+    }
 }

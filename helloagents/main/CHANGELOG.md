@@ -14,6 +14,8 @@
 - 首页、媒体库列表和收藏页中 Movie/Series 卡片 OK 行为改为进入详情页；Episode 保持直接播放。
 - Series 季卡片使用 `UserData.UnplayedItemCount` 显示“剩 n 集”角标，缺失或为 0 时不显示。
 - 媒体详情页补齐媒体信息和演员信息独立展示区，电影详情提供更明显的“播放”按钮，电视剧详情提供“查看季列表”入口。
+- 已保存 token 冷启动时优先恢复凭证，只有无凭证或凭证失效时才启动手机扫码同步服务。
+- 首页 Dashboard 聚合改为受控并发加载，Emby API service 按服务器和 token 复用，图片 URL 按用途追加尺寸参数。
 
 ### 修复
 - 补齐 Coil 3 `coil-network-okhttp` 依赖，修复 Emby 媒体库、媒体卡片和详情页网络封面全部显示占位的问题。

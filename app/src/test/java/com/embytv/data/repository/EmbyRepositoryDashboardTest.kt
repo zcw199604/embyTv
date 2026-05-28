@@ -47,7 +47,7 @@ class EmbyRepositoryDashboardTest {
         assertEquals("电影", dashboard.libraries.single().name)
         assertEquals("movies", dashboard.libraries.single().collectionType)
         assertEquals(42, dashboard.libraries.single().itemCount)
-        assertEquals("http://emby.test/Items/library-1/Images/Primary?tag=library-tag", dashboard.libraries.single().imageUrl)
+        assertEquals("http://emby.test/Items/library-1/Images/Primary?tag=library-tag&MaxWidth=960&MaxHeight=540&Quality=85", dashboard.libraries.single().imageUrl)
 
         assertEquals("resume-1", dashboard.resumeItems.single().id)
         assertEquals("真实剧集", dashboard.resumeItems.single().seriesName)
@@ -61,7 +61,7 @@ class EmbyRepositoryDashboardTest {
         assertEquals("library-1", dashboard.libraryLatestSections.single().library.id)
         assertEquals("library-latest-1", dashboard.libraryLatestSections.single().items.single().id)
         assertEquals("Movie", dashboard.libraryLatestSections.single().items.single().type)
-        assertEquals("http://emby.test/Items/library-latest-1/Images/Primary?tag=movie-primary", dashboard.libraryLatestSections.single().items.single().imageUrl)
+        assertEquals("http://emby.test/Items/library-latest-1/Images/Primary?tag=movie-primary&MaxWidth=500&MaxHeight=750&Quality=85", dashboard.libraryLatestSections.single().items.single().imageUrl)
         assertNull(dashboard.libraryLatestSections.single().items.single().unplayedItemCount)
     }
 
@@ -100,9 +100,9 @@ class EmbyRepositoryDashboardTest {
 
         val dashboard = repository.loadHomeDashboard(session, "device-1").getOrThrow()
 
-        assertEquals("http://emby.test/Items/library-no-tags/Images/Primary?tag=view-primary", dashboard.libraries.single().imageUrl)
-        assertEquals("http://emby.test/Items/movie-no-tags/Images/Primary?tag=movie-primary", dashboard.libraryLatestSections.single().items.single().imageUrl)
-        assertEquals("http://emby.test/Items/movie-parent/Images/Thumb?tag=movie-thumb", dashboard.libraryLatestSections.single().items.single().thumbImageUrl)
+        assertEquals("http://emby.test/Items/library-no-tags/Images/Primary?tag=view-primary&MaxWidth=960&MaxHeight=540&Quality=85", dashboard.libraries.single().imageUrl)
+        assertEquals("http://emby.test/Items/movie-no-tags/Images/Primary?tag=movie-primary&MaxWidth=500&MaxHeight=750&Quality=85", dashboard.libraryLatestSections.single().items.single().imageUrl)
+        assertEquals("http://emby.test/Items/movie-parent/Images/Thumb?tag=movie-thumb&MaxWidth=640&MaxHeight=360&Quality=85", dashboard.libraryLatestSections.single().items.single().thumbImageUrl)
     }
 
     @Test
@@ -142,8 +142,8 @@ class EmbyRepositoryDashboardTest {
         assertEquals("Series", series.type)
         assertEquals("series-1", series.seriesId)
         assertEquals(3, series.unplayedItemCount)
-        assertEquals("http://emby.test/Items/series-1/Images/Primary?tag=series-primary", series.imageUrl)
-        assertEquals("http://emby.test/Items/series-1/Images/Backdrop/0?tag=series-backdrop", series.backdropImageUrl)
+        assertEquals("http://emby.test/Items/series-1/Images/Primary?tag=series-primary&MaxWidth=500&MaxHeight=750&Quality=85", series.imageUrl)
+        assertEquals("http://emby.test/Items/series-1/Images/Backdrop/0?tag=series-backdrop&MaxWidth=960&MaxHeight=540&Quality=85", series.backdropImageUrl)
     }
 
     @Test

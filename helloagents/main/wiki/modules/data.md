@@ -27,7 +27,13 @@ Emby 返回用户 ID 和访问令牌后：
 - 调用 `Users/{userId}/Items/Resume` 读取继续观看。
 - 调用 `Users/{userId}/Items/Latest` 作为继续观看为空时的最近入库兜底。
 - 按媒体库调用 `Users/{userId}/Items/Latest?ParentId=...&Limit=8` 读取首页横排最新资源；tvshows 使用 `IncludeItemTypes=Episode&GroupItems=true` 并兜底聚合为 Series。
+- 媒体库数量统计、继续观看、最近入库和按库 latest 使用 Coroutines 受控并发加载，并发上限为 4，避免媒体库数量较多时完全串行阻塞首页。
 - 不在首页首屏全量拉取全部 Movie/Episode。
+
+#### 场景: Emby API 复用
+Repository 请求 Emby 时：
+- `EmbyApiFactory` 按 normalized `baseUrl + accessToken` 缓存 Retrofit service。
+- 不同服务器或不同 token 必须使用不同 service，避免旧 token 泄漏到新会话。
 
 #### 场景: 媒体库资源列表
 用户进入媒体库后：
@@ -63,6 +69,7 @@ Emby 返回用户 ID 和访问令牌后：
 - 优先使用当前条目的 `ImageTags.Primary`、`PrimaryImageTag`、`ImageTags.Thumb` 和 `BackdropImageTags`。
 - 当前条目缺图时使用 `ParentThumbItemId`、`ParentBackdropItemId`、`SeriesId` 与对应 image tag 构造父级图片 URL。
 - 只有 item id 而没有 tag 时允许使用 Emby 无 tag 图片端点兜底；仍缺图则由 UI 展示占位。
+- 图片 URL 按用途追加 `MaxWidth`、`MaxHeight` 和 `Quality`，首页 poster/thumb/backdrop 使用较小尺寸，详情图可使用更高尺寸，降低 TV 端网络与解码压力。
 
 #### 场景: 播放详情
 选择媒体后：
@@ -86,6 +93,7 @@ Emby 返回用户 ID 和访问令牌后：
 - domain
 
 ## 变更历史
+- [202605281948_performance_optimization](../../history/2026-05/202605281948_performance_optimization/) - 优化首页 Dashboard 受控并发、Emby API service 复用和图片尺寸化。
 - [202605281300_media_detail_seasons](../../history/2026-05/202605281300_media_detail_seasons/) - 新增媒体详情、Series 季列表和季内 Episode 按需加载。
 - [202605281045_favorite_resources_by_type](../../history/2026-05/202605281045_favorite_resources_by_type/) - 新增收藏资源查询和电影/电视剧聚合模型。
 - [202605272217_library_browse_series_grouping](../../history/2026-05/202605272217_library_browse_series_grouping/) - 增加图片字段兜底、媒体库资源列表查询和 tvshows Series 聚合。

@@ -53,7 +53,7 @@ class EmbyRepositoryMediaDetailTest {
         assertEquals("movie-1", detail.item.id)
         assertEquals("真实电影", detail.item.name)
         assertEquals("真实简介", detail.item.overview)
-        assertEquals("http://emby.test/Items/movie-1/Images/Primary?tag=movie-primary", detail.item.imageUrl)
+        assertEquals("http://emby.test/Items/movie-1/Images/Primary?tag=movie-primary&MaxWidth=500&MaxHeight=750&Quality=85", detail.item.imageUrl)
         assertEquals(listOf("剧情", "科幻"), detail.genres)
         assertEquals(listOf("电影公司"), detail.studios)
         assertEquals("PG-13", detail.officialRating)
@@ -102,7 +102,7 @@ class EmbyRepositoryMediaDetailTest {
         assertEquals("第 1 季", detail.seasons[0].name)
         assertEquals(12, detail.seasons[0].episodeCount)
         assertEquals(4, detail.seasons[0].unplayedItemCount)
-        assertEquals("http://emby.test/Items/season-1/Images/Primary?tag=season-primary", detail.seasons[0].imageUrl)
+        assertEquals("http://emby.test/Items/season-1/Images/Primary?tag=season-primary&MaxWidth=500&MaxHeight=750&Quality=85", detail.seasons[0].imageUrl)
         assertNull(detail.seasons[1].unplayedItemCount)
     }
 

@@ -42,6 +42,7 @@ Emby 登录成功后：
 用户输入 Emby 服务器配置和账号后：
 - 能触发认证与首页 Dashboard 聚合加载。
 - 加载失败时显示可读错误。
+- App 启动时优先尝试恢复已保存 token；只有没有凭证或凭证失效时才启动手机扫码同步服务，避免已登录用户冷启动时出现多余同步服务开销。
 
 #### 场景: 播放页
 用户选择媒体后：
@@ -154,6 +155,7 @@ OSD 显示后：
 - NanoHTTPD
 
 ## 变更历史
+- [202605281948_performance_optimization](../../history/2026-05/202605281948_performance_optimization/) - 优化已保存 token 冷启动路径，避免先启动手机扫码同步服务。
 - [20260528_media_detail_rich_info](../../history/2026-05/20260528_media_detail_rich_info/) - 媒体详情页补齐媒体信息、演员信息和更明显的播放/季列表入口。
 - [202605281928_remote_ok_single_press_fix](../../history/2026-05/202605281928_remote_ok_single_press_fix/) - 在通用可聚焦面板统一处理 TV OK/Enter KeyUp，修复进入详情需按两次确认键的问题。
 - [202605281915_coil_network_images_fix](../../history/2026-05/202605281915_coil_network_images_fix/) - 补齐 Coil 3 OkHttp 网络图片加载依赖，修复 Emby 封面全不显示。
