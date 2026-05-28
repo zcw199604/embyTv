@@ -82,6 +82,42 @@
 - 资源名字优先使用 `name`，电视剧聚合优先使用 `seriesName`，仍为空时用条目 ID 兜底。
 - 电视剧卡片可使用 `unplayedItemCount` 显示“剩 n 集”角标。
 
+### EmbyPersonSummary
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| id | String? | `People[].Id` | 人物 ID |
+| name | String | `People[].Name` | 人物名称 |
+| role | String? | `People[].Role` | 角色名 |
+| type | String? | `People[].Type` | Actor、Director 等 |
+
+### EmbySeasonSummary
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| id | String | `Shows/{seriesId}/Seasons.Items[].Id` | Season 条目 ID |
+| name | String | `Name` | 季名称 |
+| indexNumber | Int? | `IndexNumber` | 季序号 |
+| imageUrl | String? | `ImageTags.Primary` 或 `PrimaryImageTag` | 季封面 |
+| episodeCount | Int? | `ChildCount` | 本季集数 |
+| unplayedItemCount | Int? | `UserData.UnplayedItemCount` | 剩余未播放集数；小于等于 0 时置空 |
+
+### EmbyMediaDetail
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| item | MediaItemSummary | `Users/{userId}/Items/{itemId}` | Movie 或 Series 基础条目 |
+| people | List<EmbyPersonSummary> | `People` | 演员等人物信息 |
+| genres | List<String> | `Genres` | 类型 |
+| studios | List<String> | `Studios[].Name` | 制片方 |
+| communityRating | Double? | `CommunityRating` | 社区评分 |
+| officialRating | String? | `OfficialRating` | 分级 |
+| premiereDate | String? | `PremiereDate` | 首映日期 |
+| seasons | List<EmbySeasonSummary> | `Shows/{seriesId}/Seasons` | Series 详情页季列表；Movie 为空 |
+
+### EmbySeasonEpisodes
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| season | EmbySeasonSummary | 用户选择的季 | 当前季上下文 |
+| episodes | List<MediaItemSummary> | `Shows/{seriesId}/Episodes?SeasonId=...` | 季内 Episode 列表 |
+
 ### EmbyHomeDashboard
 | 字段 | 类型 | 来源 | 说明 |
 |------|------|------|------|

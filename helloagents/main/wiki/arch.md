@@ -56,3 +56,4 @@ sequenceDiagram
 | ADR-001 | 使用本地 AAR 预留 Media3 FFmpeg 扩展 | 2026-05-20 | ✅已采纳 | player, build | [how.md](../history/2026-05/202605201342_emby_tv_init/how.md#adr-001-使用本地-aar-预留-media3-ffmpeg-扩展) |
 | ADR-002 | 使用 TV 本机临时 HTTP 服务完成手机同步 | 2026-05-27 | ✅已采纳 | ui, core/network | [how.md](../history/2026-05/202605271514_emby_server_mobile_sync/how.md#adr-002-使用-tv-本机临时-http-服务完成手机同步) |
 | ADR-003 | 保存用户名展示字段，不保存密码，只用 Emby 访问凭证恢复认证 | 2026-05-27 | ✅已采纳 | data, domain | [how.md](../history/2026-05/202605271514_emby_server_mobile_sync/how.md#adr-003-保存用户名展示字段不保存密码只用-emby-访问凭证恢复认证) |
+| ADR-008 | 详情页采用按需加载而非列表预加载 | 2026-05-28 | ✅已采纳 | data, ui/home | [how.md](../history/2026-05/202605281300_media_detail_seasons/how.md#adr-008-详情页采用按需加载而非列表预加载) |

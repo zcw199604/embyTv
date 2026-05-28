@@ -4,7 +4,7 @@
 提供 Android TV Compose 页面、输入与播放导航。
 
 ## 模块概述
-- **职责:** Setup 页面负责 Emby 连接，Home 页面负责媒体中心展示和播放入口，Player 页面负责 Media3、Compose OSD 与 AkDanmaku 的组合展示。
+- **职责:** Setup 页面负责 Emby 连接，Home 页面负责媒体中心、媒体详情、季/集浏览和播放入口，Player 页面负责 Media3、Compose OSD 与 AkDanmaku 的组合展示。
 - **状态:** 🚧开发中
 - **最后更新:** 2026-05-28
 
@@ -79,7 +79,15 @@ Emby 登录成功后：
 - 电影库列表展示 Movie，剧集库列表展示 Series，未知库优先展示 Movie/Series。
 - 列表页提供加载、空状态、错误状态和遥控器可聚焦的重试按钮。
 - Back 或顶部返回按钮返回首页。
-- Movie/Episode 卡片 OK 进入播放；Series 详情暂未实现时显示明确提示，不允许空响应。
+- Movie/Series 卡片 OK 进入媒体详情页；Episode 卡片 OK 直接播放。
+
+#### 场景: 媒体详情页
+用户在首页、媒体库列表或收藏页对 Movie/Series 按 OK/Enter 后：
+- 进入 `MediaDetailScreen`，显示真实标题、封面、简介、年份、类型、评分、分级和演员。
+- Movie 详情页提供可聚焦“播放”按钮，OK 后读取 `PlaybackInfo` 并进入播放器。
+- Series 详情页展示可聚焦季列表，每季显示封面、名称、集数和“剩 n 集”角标。
+- 选中某季后展示该季 Episode 列表，Episode 卡片 OK 播放。
+- Back 在季内 Episode 列表时返回季列表，再次 Back 关闭详情页并回到来源页面。
 
 #### 场景: 收藏资源页
 用户在抽屉选择“收藏”后：
@@ -87,7 +95,7 @@ Emby 登录成功后：
 - 页面提供“电影”和“电视剧”两个可聚焦切换按钮。
 - 电影分组展示收藏 Movie；电视剧分组展示收藏 Series，以及由收藏 Episode 聚合出的 Series。
 - 每个收藏媒体卡片必须显示图片区域和资源名字；缺图片时使用占位图，名字缺失时使用剧名或条目 ID 兜底。
-- Movie 卡片 OK 进入播放；Series 详情暂未实现时显示明确提示，不允许空响应。
+- Movie/Series 卡片 OK 进入媒体详情页；Episode 卡片 OK 直接播放。
 - 页面提供加载、空状态、错误状态和遥控器可聚焦的重试按钮。
 - Back 或顶部返回按钮返回首页。
 
@@ -116,6 +124,12 @@ Emby 登录成功后：
 - Back 或关闭按钮关闭抽屉，关闭后焦点返回菜单按钮。
 - 媒体库卡片和抽屉媒体库项可用 OK/Enter 进入媒体库列表页；未实现入口保留禁用态或明确提示。
 
+#### 场景: 详情页遥控器路径
+详情页打开后：
+- Back 按层级处理：季内 Episode 列表返回季列表，详情页根层关闭详情。
+- Movie 详情的播放按钮、Series 的季卡片、Episode 卡片和错误重试按钮均可聚焦并响应 OK/Enter。
+- 详情页缺失图片、人物或评分时显示兜底文案或省略对应字段，不出现空焦点操作。
+
 #### 场景: 播放 OSD
 OSD 显示后：
 - 播放/暂停按钮获取初始焦点。
@@ -126,7 +140,7 @@ OSD 显示后：
 无外部 API。
 
 ## 数据模型
-使用 `HomeUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`EmbyFavoriteDashboard`、`HomeDashboardUiModel`、`FavoriteContentUiState`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource` 和 `PlaybackDetails`。
+使用 `HomeUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`EmbyFavoriteDashboard`、`EmbyMediaDetail`、`EmbySeasonSummary`、`EmbySeasonEpisodes`、`HomeDashboardUiModel`、`FavoriteContentUiState`、`MediaDetailUiState`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource` 和 `PlaybackDetails`。
 
 ## 依赖
 - data
@@ -137,6 +151,7 @@ OSD 显示后：
 - NanoHTTPD
 
 ## 变更历史
+- [202605281300_media_detail_seasons](../../history/2026-05/202605281300_media_detail_seasons/) - 新增 Movie/Series 详情页、Series 季列表、季内 Episode 列表和详情页遥控器返回层级。
 - [202605281045_favorite_resources_by_type](../../history/2026-05/202605281045_favorite_resources_by_type/) - 新增收藏页入口、电影/电视剧切换和遥控器返回路径。
 - [202605272217_library_browse_series_grouping](../../history/2026-05/202605272217_library_browse_series_grouping/) - 修复 Emby 图片兜底，新增媒体库列表页，剧集库按 Series 展示并显示剩余集数角标。
 - [202605272133_emby_playback_reporting](../../history/2026-05/202605272133_emby_playback_reporting/) - 播放页接入 Emby 播放状态上报。

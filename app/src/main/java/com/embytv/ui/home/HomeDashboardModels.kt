@@ -3,7 +3,11 @@ package com.embytv.ui.home
 import com.embytv.domain.model.EmbyHomeDashboard
 import com.embytv.domain.model.EmbyFavoriteDashboard
 import com.embytv.domain.model.EmbyLibraryContent
+import com.embytv.domain.model.EmbyMediaDetail
+import com.embytv.domain.model.EmbySeasonEpisodes
+import com.embytv.domain.model.EmbySeasonSummary
 import com.embytv.domain.model.MediaItemSummary
+import java.util.Locale
 
 const val FAVORITES_NAVIGATION_ID = "favorites"
 
@@ -69,6 +73,25 @@ data class FavoriteDashboardUiModel(
     val isEmpty: Boolean = items.isEmpty()
 }
 
+data class SeasonCardUiModel(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val imageUrl: String?,
+    val cornerBadge: String? = null,
+)
+
+data class MediaDetailUiModel(
+    val title: String,
+    val overview: String,
+    val metadata: String,
+    val people: List<String>,
+    val imageUrl: String?,
+    val backdropImageUrl: String?,
+    val isMovie: Boolean,
+    val seasons: List<SeasonCardUiModel>,
+)
+
 data class DrawerUiState(
     val isOpen: Boolean = false,
     val restoreMenuFocus: Boolean = false,
@@ -126,6 +149,79 @@ data class FavoriteContentUiState(
         isLoading = false,
         errorMessage = null,
     )
+}
+
+data class MediaDetailUiState(
+    val requestedItem: MediaItemSummary? = null,
+    val detail: EmbyMediaDetail? = null,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val selectedSeason: EmbySeasonSummary? = null,
+    val seasonEpisodes: EmbySeasonEpisodes? = null,
+    val isSeasonLoading: Boolean = false,
+    val seasonErrorMessage: String? = null,
+) {
+    val isOpen: Boolean = requestedItem != null || detail != null
+    val isSeasonOpen: Boolean = selectedSeason != null || seasonEpisodes != null || isSeasonLoading
+
+    fun openLoading(item: MediaItemSummary): MediaDetailUiState = MediaDetailUiState(
+        requestedItem = item,
+        isLoading = true,
+        errorMessage = null,
+    )
+
+    fun loaded(detail: EmbyMediaDetail): MediaDetailUiState = copy(
+        requestedItem = detail.item,
+        detail = detail,
+        isLoading = false,
+        errorMessage = null,
+        selectedSeason = null,
+        seasonEpisodes = null,
+        isSeasonLoading = false,
+        seasonErrorMessage = null,
+    )
+
+    fun failed(message: String): MediaDetailUiState = copy(
+        isLoading = false,
+        errorMessage = message,
+        selectedSeason = null,
+        seasonEpisodes = null,
+        isSeasonLoading = false,
+        seasonErrorMessage = null,
+    )
+
+    fun loadingSeason(season: EmbySeasonSummary): MediaDetailUiState = copy(
+        selectedSeason = season,
+        seasonEpisodes = null,
+        isSeasonLoading = true,
+        seasonErrorMessage = null,
+    )
+
+    fun seasonLoaded(episodes: EmbySeasonEpisodes): MediaDetailUiState = copy(
+        selectedSeason = episodes.season,
+        seasonEpisodes = episodes,
+        isSeasonLoading = false,
+        seasonErrorMessage = null,
+    )
+
+    fun seasonFailed(message: String): MediaDetailUiState = copy(
+        isSeasonLoading = false,
+        seasonErrorMessage = message,
+    )
+
+    fun close(): MediaDetailUiState = MediaDetailUiState()
+
+    fun back(): MediaDetailUiState =
+        if (isSeasonOpen) {
+            copy(
+                selectedSeason = null,
+                seasonEpisodes = null,
+                isSeasonLoading = false,
+                seasonErrorMessage = null,
+            )
+        } else {
+            close()
+        }
 }
 
 object HomeDashboardMapper {
@@ -239,6 +335,46 @@ object HomeDashboardMapper {
         if (runtime <= 0L) return 0f
         return (playbackPositionTicks.toFloat() / runtime.toFloat()).coerceIn(0f, 1f)
     }
+}
+
+object HomeMediaDetailMapper {
+    fun map(detail: EmbyMediaDetail): MediaDetailUiModel =
+        MediaDetailUiModel(
+            title = detail.item.name.ifBlank { detail.item.seriesName ?: detail.item.id },
+            overview = detail.item.overview?.takeIf { it.isNotBlank() } ?: "暂无简介",
+            metadata = detail.metadataLabel(),
+            people = detail.people
+                .filter { person -> person.name.isNotBlank() }
+                .take(12)
+                .map { person ->
+                    val role = person.role?.takeIf { it.isNotBlank() }
+                    if (role == null) person.name else "${person.name} 饰 $role"
+                },
+            imageUrl = detail.item.imageUrl ?: detail.item.thumbImageUrl,
+            backdropImageUrl = detail.item.backdropImageUrl ?: detail.item.thumbImageUrl ?: detail.item.imageUrl,
+            isMovie = detail.item.type.equals("Movie", ignoreCase = true),
+            seasons = detail.seasons.map { it.toSeasonCard() },
+        )
+
+    fun mapEpisodes(episodes: EmbySeasonEpisodes): List<MediaCardUiModel> =
+        episodes.episodes.map { HomeDashboardMapper.mapMediaItem(it) }
+
+    private fun EmbyMediaDetail.metadataLabel(): String =
+        listOfNotNull(
+            item.productionYear?.toString(),
+            genres.takeIf { it.isNotEmpty() }?.joinToString(" / "),
+            communityRating?.let { String.format(Locale.US, "%.1f", it) },
+            officialRating?.takeIf { it.isNotBlank() },
+        ).joinToString(" · ")
+
+    private fun EmbySeasonSummary.toSeasonCard(): SeasonCardUiModel =
+        SeasonCardUiModel(
+            id = id,
+            title = name.ifBlank { indexNumber?.let { "第 $it 季" } ?: id },
+            subtitle = episodeCount?.let { "$it 集" } ?: "剧集",
+            imageUrl = imageUrl,
+            cornerBadge = unplayedItemCount?.takeIf { it > 0 }?.let { "剩 $it 集" },
+        )
 }
 
 object HomeFavoritesMapper {

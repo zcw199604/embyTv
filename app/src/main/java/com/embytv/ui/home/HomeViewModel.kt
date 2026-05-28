@@ -7,6 +7,7 @@ import com.embytv.core.network.MobileSetupSyncServer
 import com.embytv.data.repository.EmbyRepository
 import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.EmbyLibrarySummary
+import com.embytv.domain.model.EmbySeasonSummary
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.PlaybackSource
 import com.embytv.domain.model.ServerConfigDraft
@@ -129,6 +130,64 @@ class HomeViewModel(
         loadFavorites(session)
     }
 
+    fun openMediaDetail(item: MediaItemSummary) {
+        val session = _uiState.value.session ?: return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    mediaDetail = it.mediaDetail.openLoading(item),
+                    errorMessage = null,
+                )
+            }
+            repository.loadMediaDetail(session, deviceId, item.id)
+                .onSuccess { detail ->
+                    _uiState.update {
+                        it.copy(mediaDetail = it.mediaDetail.loaded(detail))
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(mediaDetail = it.mediaDetail.failed(error.message ?: "媒体详情加载失败"))
+                    }
+                }
+        }
+    }
+
+    fun retryMediaDetail() {
+        val item = _uiState.value.mediaDetail.requestedItem ?: return
+        openMediaDetail(item)
+    }
+
+    fun closeMediaDetail() {
+        _uiState.update { it.copy(mediaDetail = it.mediaDetail.close(), errorMessage = null) }
+    }
+
+    fun backFromDetail() {
+        _uiState.update { it.copy(mediaDetail = it.mediaDetail.back(), errorMessage = null) }
+    }
+
+    fun openSeasonEpisodes(season: EmbySeasonSummary) {
+        val state = _uiState.value
+        val session = state.session ?: return
+        val seriesId = state.mediaDetail.detail?.item?.id ?: return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(mediaDetail = it.mediaDetail.loadingSeason(season))
+            }
+            repository.loadSeasonEpisodes(session, deviceId, seriesId, season)
+                .onSuccess { episodes ->
+                    _uiState.update {
+                        it.copy(mediaDetail = it.mediaDetail.seasonLoaded(episodes))
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(mediaDetail = it.mediaDetail.seasonFailed(error.message ?: "剧集列表加载失败"))
+                    }
+                }
+        }
+    }
+
     override fun onCleared() {
         syncServer.stop()
         super.onCleared()
@@ -222,6 +281,7 @@ class HomeViewModel(
                         dashboard = dashboard,
                         libraryContent = it.libraryContent.close(),
                         favoriteContent = it.favoriteContent.close(),
+                        mediaDetail = it.mediaDetail.close(),
                     )
                 }
             }
@@ -284,6 +344,7 @@ class HomeViewModel(
                 it.copy(
                     favoriteContent = it.favoriteContent.openLoading(),
                     libraryContent = it.libraryContent.close(),
+                    mediaDetail = it.mediaDetail.close(),
                     errorMessage = null,
                 )
             }

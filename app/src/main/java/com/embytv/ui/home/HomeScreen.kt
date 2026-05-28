@@ -7,16 +7,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.runtime.Composable
@@ -43,6 +47,7 @@ import com.embytv.ui.components.GlassPanel
 import com.embytv.ui.components.LibraryCard
 import com.embytv.ui.components.MediaPosterCard
 import com.embytv.ui.components.NavigationDrawerPanel
+import com.embytv.ui.components.NetworkBackdropImage
 import com.embytv.ui.components.PrimaryTvButton
 import com.embytv.ui.components.RemoteHint
 import com.embytv.ui.components.RoundIconButton
@@ -81,6 +86,11 @@ fun HomeScreen(
             onOpenLibrary = viewModel::openLibrary,
             onCloseLibrary = viewModel::closeLibrary,
             onRetryLibrary = viewModel::retryLibrary,
+            onOpenMediaDetail = viewModel::openMediaDetail,
+            onCloseMediaDetail = viewModel::closeMediaDetail,
+            onBackFromDetail = viewModel::backFromDetail,
+            onRetryMediaDetail = viewModel::retryMediaDetail,
+            onOpenSeasonEpisodes = viewModel::openSeasonEpisodes,
             onPlay = { item ->
                 coroutineScope.launch {
                     viewModel.createPlaybackSource(item)?.let(onPlay)
@@ -100,6 +110,11 @@ private fun HomeDashboardScreen(
     onOpenLibrary: (String) -> Unit,
     onCloseLibrary: () -> Unit,
     onRetryLibrary: () -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
+    onCloseMediaDetail: () -> Unit,
+    onBackFromDetail: () -> Unit,
+    onRetryMediaDetail: () -> Unit,
+    onOpenSeasonEpisodes: (com.embytv.domain.model.EmbySeasonSummary) -> Unit,
     onPlay: (MediaItemSummary) -> Unit,
 ) {
     val dashboard = remember(state.dashboard) { HomeDashboardMapper.map(state.dashboard) }
@@ -139,13 +154,23 @@ private fun HomeDashboardScreen(
                     ),
                 ),
         )
-        if (state.favoriteContent.isOpen) {
+        if (state.mediaDetail.isOpen) {
+            MediaDetailScreen(
+                state = state.mediaDetail,
+                onBack = onBackFromDetail,
+                onClose = onCloseMediaDetail,
+                onRetry = onRetryMediaDetail,
+                onOpenSeason = onOpenSeasonEpisodes,
+                onPlay = onPlay,
+            )
+        } else if (state.favoriteContent.isOpen) {
             FavoriteContentScreen(
                 state = state.favoriteContent,
                 onBack = onCloseFavorites,
                 onRetry = onRetryFavorites,
                 onSelectCategory = onSelectFavoriteCategory,
                 onPlay = onPlay,
+                onOpenMediaDetail = onOpenMediaDetail,
                 onUnsupported = { hintMessage = it },
             )
         } else if (state.libraryContent.isOpen) {
@@ -154,6 +179,7 @@ private fun HomeDashboardScreen(
                 onBack = onCloseLibrary,
                 onRetry = onRetryLibrary,
                 onPlay = onPlay,
+                onOpenMediaDetail = onOpenMediaDetail,
                 onUnsupported = { hintMessage = it },
             )
         } else {
@@ -221,6 +247,7 @@ private fun HomeDashboardScreen(
                         cards = dashboard.continueWatching,
                         mediaItems = mediaItems,
                         onPlay = onPlay,
+                        onOpenMediaDetail = onOpenMediaDetail,
                     )
                 }
             }
@@ -236,6 +263,7 @@ private fun HomeDashboardScreen(
                             ?.firstOrNull { it.id == card.id }
                     },
                     onPlay = onPlay,
+                    onOpenMediaDetail = onOpenMediaDetail,
                 )
             }
 
@@ -277,6 +305,7 @@ private fun FavoriteContentScreen(
     onRetry: () -> Unit,
     onSelectCategory: (FavoriteCategory) -> Unit,
     onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
     onUnsupported: (String) -> Unit,
 ) {
     val backFocusRequester = remember { FocusRequester() }
@@ -366,6 +395,7 @@ private fun FavoriteContentScreen(
                     items = rowItems,
                     cards = uiModel.items,
                     onPlay = onPlay,
+                    onOpenMediaDetail = onOpenMediaDetail,
                     onUnsupported = onUnsupported,
                 )
             }
@@ -382,6 +412,7 @@ private fun FavoriteGridRow(
     items: List<MediaItemSummary>,
     cards: List<MediaCardUiModel>,
     onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
     onUnsupported: (String) -> Unit,
 ) {
     Row(
@@ -394,10 +425,12 @@ private fun FavoriteGridRow(
                 card = card,
                 modifier = Modifier.weight(1f),
                 onClick = {
-                    if (item.type.equals("Movie", ignoreCase = true) || item.type.equals("Episode", ignoreCase = true)) {
+                    if (item.opensDetail()) {
+                        onOpenMediaDetail(item)
+                    } else if (item.type.equals("Episode", ignoreCase = true)) {
                         onPlay(item)
                     } else {
-                        onUnsupported("剧集详情暂未支持")
+                        onUnsupported("该资源暂不支持打开")
                     }
                 },
             )
@@ -414,6 +447,7 @@ private fun LibraryContentScreen(
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
     onUnsupported: (String) -> Unit,
 ) {
     val backFocusRequester = remember { FocusRequester() }
@@ -478,6 +512,7 @@ private fun LibraryContentScreen(
                 LibraryGridRow(
                     items = rowItems,
                     onPlay = onPlay,
+                    onOpenMediaDetail = onOpenMediaDetail,
                     onUnsupported = onUnsupported,
                 )
             }
@@ -493,6 +528,7 @@ private fun LibraryContentScreen(
 private fun LibraryGridRow(
     items: List<MediaItemSummary>,
     onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
     onUnsupported: (String) -> Unit,
 ) {
     Row(
@@ -505,10 +541,12 @@ private fun LibraryGridRow(
                 card = card,
                 modifier = Modifier.weight(1f),
                 onClick = {
-                    if (item.type.equals("Movie", ignoreCase = true) || item.type.equals("Episode", ignoreCase = true)) {
+                    if (item.opensDetail()) {
+                        onOpenMediaDetail(item)
+                    } else if (item.type.equals("Episode", ignoreCase = true)) {
                         onPlay(item)
                     } else {
-                        onUnsupported("剧集详情暂未支持")
+                        onUnsupported("该资源暂不支持打开")
                     }
                 },
             )
@@ -558,6 +596,7 @@ private fun MediaRow(
     cards: List<MediaCardUiModel>,
     mediaItems: List<MediaItemSummary>,
     onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
 ) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap)) {
         items(mediaItems, key = { it.id }) { item ->
@@ -565,11 +604,324 @@ private fun MediaRow(
             MediaPosterCard(
                 card = card,
                 modifier = Modifier.fillParentMaxWidth(0.16f),
-                onClick = { onPlay(item) },
+                onClick = {
+                    if (item.opensDetail()) {
+                        onOpenMediaDetail(item)
+                    } else {
+                        onPlay(item)
+                    }
+                },
             )
         }
     }
 }
+
+@Composable
+private fun MediaDetailScreen(
+    state: MediaDetailUiState,
+    onBack: () -> Unit,
+    onClose: () -> Unit,
+    onRetry: () -> Unit,
+    onOpenSeason: (com.embytv.domain.model.EmbySeasonSummary) -> Unit,
+    onPlay: (MediaItemSummary) -> Unit,
+) {
+    BackHandler(enabled = true, onBack = onBack)
+    val backFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(state.requestedItem?.id, state.isSeasonOpen) {
+        backFocusRequester.requestFocus()
+    }
+
+    if (state.isSeasonOpen) {
+        SeasonEpisodesScreen(
+            state = state,
+            backFocusRequester = backFocusRequester,
+            onBack = onBack,
+            onRetry = {
+                state.selectedSeason?.let(onOpenSeason)
+            },
+            onPlay = onPlay,
+        )
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = CinematicGlassSpacing.SafeAreaX,
+                vertical = CinematicGlassSpacing.SafeAreaY,
+            ),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        item {
+            DetailTopBar(
+                title = state.requestedItem?.name ?: state.detail?.item?.name ?: "媒体详情",
+                subtitle = state.detailStatusLabel(),
+                backFocusRequester = backFocusRequester,
+                onBack = onClose,
+                onRetry = if (state.errorMessage != null) onRetry else null,
+            )
+        }
+
+        when {
+            state.isLoading -> item { LibraryStatePanel(title = "正在加载详情", subtitle = "正在从 Emby 获取媒体简介和人物信息。") }
+            state.errorMessage != null -> item { LibraryStatePanel(title = "详情加载失败", subtitle = state.errorMessage) }
+            state.detail == null -> item { LibraryStatePanel(title = "暂无详情", subtitle = "Emby 没有返回该媒体的详情数据。") }
+            else -> item {
+                MediaDetailContent(
+                    detail = state.detail,
+                    onOpenSeason = onOpenSeason,
+                    onPlay = onPlay,
+                )
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(108.dp))
+        }
+    }
+}
+
+@Composable
+private fun MediaDetailContent(
+    detail: com.embytv.domain.model.EmbyMediaDetail,
+    onOpenSeason: (com.embytv.domain.model.EmbySeasonSummary) -> Unit,
+    onPlay: (MediaItemSummary) -> Unit,
+) {
+    val uiModel = remember(detail) { HomeMediaDetailMapper.map(detail) }
+    val playFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(detail.item.id) {
+        if (uiModel.isMovie) {
+            playFocusRequester.requestFocus()
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
+        ) {
+            GlassPanel(
+                modifier = Modifier
+                    .width(260.dp)
+                    .aspectRatio(2f / 3f),
+                cornerRadius = 10.dp,
+            ) {
+                NetworkBackdropImage(
+                    imageUrl = uiModel.imageUrl,
+                    contentDescription = uiModel.title,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text(
+                    text = uiModel.title,
+                    color = CinematicGlassColors.OnSurface,
+                    fontSize = 42.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (uiModel.metadata.isNotBlank()) {
+                    Text(
+                        text = uiModel.metadata,
+                        color = CinematicGlassColors.Primary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Text(
+                    text = uiModel.overview,
+                    color = CinematicGlassColors.OnSurfaceVariant,
+                    fontSize = 17.sp,
+                    lineHeight = 24.sp,
+                    maxLines = 6,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (uiModel.people.isNotEmpty()) {
+                    Text(
+                        text = uiModel.people.joinToString("  /  "),
+                        color = CinematicGlassColors.OnSurface,
+                        fontSize = 15.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (uiModel.isMovie) {
+                    PrimaryTvButton(
+                        text = "播放",
+                        icon = Icons.Filled.PlayArrow,
+                        onClick = { onPlay(detail.item) },
+                        modifier = Modifier.focusRequester(playFocusRequester),
+                    )
+                }
+            }
+        }
+
+        if (!uiModel.isMovie) {
+            SectionHeader(title = "季")
+            if (detail.seasons.isEmpty()) {
+                LibraryStatePanel(title = "暂无季列表", subtitle = "Emby 没有返回该剧集的季数据。")
+            } else {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap)) {
+                    items(detail.seasons, key = { it.id }) { season ->
+                        val card = uiModel.seasons.firstOrNull { it.id == season.id } ?: season.toFallbackCard()
+                        MediaPosterCard(
+                            card = MediaCardUiModel(
+                                id = card.id,
+                                title = card.title,
+                                subtitle = card.subtitle,
+                                imageUrl = card.imageUrl ?: uiModel.imageUrl,
+                                progressFraction = 0f,
+                                badge = "Season",
+                                cornerBadge = card.cornerBadge,
+                            ),
+                            modifier = Modifier.fillParentMaxWidth(0.16f),
+                            onClick = { onOpenSeason(season) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeasonEpisodesScreen(
+    state: MediaDetailUiState,
+    backFocusRequester: FocusRequester,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onPlay: (MediaItemSummary) -> Unit,
+) {
+    val episodes = state.seasonEpisodes
+    val cards = remember(episodes) {
+        episodes?.let { HomeMediaDetailMapper.mapEpisodes(it) }.orEmpty()
+    }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = CinematicGlassSpacing.SafeAreaX,
+                vertical = CinematicGlassSpacing.SafeAreaY,
+            ),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        item {
+            DetailTopBar(
+                title = state.selectedSeason?.name ?: "剧集",
+                subtitle = state.seasonStatusLabel(),
+                backFocusRequester = backFocusRequester,
+                onBack = onBack,
+                onRetry = if (state.seasonErrorMessage != null) onRetry else null,
+            )
+        }
+        when {
+            state.isSeasonLoading -> item { LibraryStatePanel(title = "正在加载剧集", subtitle = "正在从 Emby 获取该季的 Episode 列表。") }
+            state.seasonErrorMessage != null -> item { LibraryStatePanel(title = "剧集加载失败", subtitle = state.seasonErrorMessage) }
+            episodes?.episodes.isNullOrEmpty() -> item { LibraryStatePanel(title = "暂无剧集", subtitle = "Emby 没有返回该季的 Episode 数据。") }
+            else -> items(episodes.episodes.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap),
+                ) {
+                    rowItems.forEach { item ->
+                        val card = cards.firstOrNull { it.id == item.id } ?: HomeDashboardMapper.mapMediaItem(item)
+                        MediaPosterCard(
+                            card = card,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onPlay(item) },
+                        )
+                    }
+                    repeat(5 - rowItems.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+        item {
+            Spacer(modifier = Modifier.height(108.dp))
+        }
+    }
+}
+
+@Composable
+private fun DetailTopBar(
+    title: String,
+    subtitle: String,
+    backFocusRequester: FocusRequester,
+    onBack: () -> Unit,
+    onRetry: (() -> Unit)?,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            RoundIconButton(
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "返回",
+                onClick = onBack,
+                modifier = Modifier.focusRequester(backFocusRequester),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = title,
+                    color = CinematicGlassColors.OnSurface,
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subtitle,
+                    color = CinematicGlassColors.OnSurfaceVariant,
+                    fontSize = 14.sp,
+                )
+            }
+        }
+        if (onRetry != null) {
+            PrimaryTvButton(
+                text = "重试",
+                icon = Icons.Filled.Refresh,
+                onClick = onRetry,
+            )
+        }
+    }
+}
+
+private fun MediaDetailUiState.detailStatusLabel(): String {
+    if (isLoading) return "正在加载"
+    errorMessage?.let { return "加载失败" }
+    val item = detail?.item ?: requestedItem ?: return "媒体详情"
+    return when {
+        item.type.equals("Movie", ignoreCase = true) -> "电影详情"
+        item.type.equals("Series", ignoreCase = true) -> "电视剧详情"
+        else -> "媒体详情"
+    }
+}
+
+private fun MediaDetailUiState.seasonStatusLabel(): String {
+    if (isSeasonLoading) return "正在加载"
+    seasonErrorMessage?.let { return "加载失败" }
+    return "${seasonEpisodes?.episodes?.size ?: selectedSeason?.episodeCount ?: 0} 集"
+}
+
+private fun com.embytv.domain.model.EmbySeasonSummary.toFallbackCard(): SeasonCardUiModel =
+    SeasonCardUiModel(
+        id = id,
+        title = name.ifBlank { indexNumber?.let { "第 $it 季" } ?: id },
+        subtitle = episodeCount?.let { "$it 集" } ?: "剧集",
+        imageUrl = imageUrl,
+        cornerBadge = unplayedItemCount?.takeIf { it > 0 }?.let { "剩 $it 集" },
+    )
+
+private fun MediaItemSummary.opensDetail(): Boolean =
+    type.equals("Movie", ignoreCase = true) || type.equals("Series", ignoreCase = true)
 
 @Composable
 private fun SectionHeader(title: String) {

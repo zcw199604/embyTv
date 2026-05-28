@@ -13,6 +13,7 @@ data class HomeUiState(
     val dashboard: EmbyHomeDashboard = EmbyHomeDashboard(),
     val libraryContent: LibraryContentUiState = LibraryContentUiState(),
     val favoriteContent: FavoriteContentUiState = FavoriteContentUiState(),
+    val mediaDetail: MediaDetailUiState = MediaDetailUiState(),
 )
 
 data class MobileSetupSyncUiState(

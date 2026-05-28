@@ -1,10 +1,10 @@
 # data
 
 ## 目的
-封装 Emby API、DTO、Repository、凭证存储与播放地址构造。
+封装 Emby API、DTO、Repository、凭证存储、媒体详情聚合与播放地址构造。
 
 ## 模块概述
-- **职责:** Retrofit 接口定义、Emby 登录、首页 Dashboard 聚合、收藏聚合、播放详情读取、播放地址构造。
+- **职责:** Retrofit 接口定义、Emby 登录、首页 Dashboard 聚合、收藏聚合、媒体详情/季/集读取、播放详情读取、播放地址构造。
 - **状态:** 🚧开发中
 - **最后更新:** 2026-05-28
 
@@ -43,6 +43,20 @@ Emby 返回用户 ID 和访问令牌后：
 - Episode 按 `SeriesId` 或 `SeriesName` 聚合为 Series，避免同一剧集重复卡片。
 - 聚合卡片保留图片 URL、剧集名字和 `UserData.UnplayedItemCount`；缺少名字时用条目 ID 兜底。
 
+#### 场景: 媒体详情聚合
+用户在 Movie 或 Series 卡片按 OK 后：
+- 调用 `Users/{userId}/Items/{itemId}` 读取详情基础信息。
+- 映射 `Overview`、`People`、`Genres`、`Studios`、`ProductionYear`、`CommunityRating`、`OfficialRating`、图片和播放进度字段。
+- Movie 详情不额外加载季列表。
+- Series 详情继续调用 `Shows/{seriesId}/Seasons` 获取季列表，并将 `UserData.UnplayedItemCount > 0` 映射为季角标来源。
+- 不在首页、媒体库列表或收藏页预加载详情，避免首屏请求量扩大。
+
+#### 场景: 季内 Episode 按需加载
+用户在 Series 详情页选择某一季后：
+- 调用 `Shows/{seriesId}/Episodes?SeasonId=...` 获取该季 Episode。
+- 映射 Episode 的 `ParentIndexNumber`、`IndexNumber`、`SeriesName`、缩略图和播放进度。
+- Episode OK 后继续走既有 `Items/{itemId}/PlaybackInfo` 播放详情读取和播放状态上报。
+
 #### 场景: 图片兜底
 展示媒体库或媒体卡片时：
 - 优先使用当前条目的 `ImageTags.Primary`、`PrimaryImageTag`、`ImageTags.Thumb` 和 `BackdropImageTags`。
@@ -71,6 +85,7 @@ Emby 返回用户 ID 和访问令牌后：
 - domain
 
 ## 变更历史
+- [202605281300_media_detail_seasons](../../history/2026-05/202605281300_media_detail_seasons/) - 新增媒体详情、Series 季列表和季内 Episode 按需加载。
 - [202605281045_favorite_resources_by_type](../../history/2026-05/202605281045_favorite_resources_by_type/) - 新增收藏资源查询和电影/电视剧聚合模型。
 - [202605272217_library_browse_series_grouping](../../history/2026-05/202605272217_library_browse_series_grouping/) - 增加图片字段兜底、媒体库资源列表查询和 tvshows Series 聚合。
 - [202605271602_emby_real_data_replacement](../../history/2026-05/202605271602_emby_real_data_replacement/) - 首页和播放器可见数据替换为 Emby 真实 API 数据。

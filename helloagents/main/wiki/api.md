@@ -145,6 +145,45 @@
 
 **落地实现:** `EmbyRepository.loadHomeDashboard()` 对 movies 直接映射 Movie；对 tvshows 请求 `GroupItems=true`，若返回仍是 Episode，则按 `SeriesId/SeriesName` 本地聚合为 Series 卡片。
 
+### 媒体详情
+
+#### GET Users/{userId}/Items/{itemId}
+**描述:** 获取电影或电视剧详情，用于详情页展示简介、演员、类型、年份、评分、分级和图片。
+
+**请求参数:**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| userId | string | 是 | 当前用户 ID |
+| itemId | string | 是 | Movie 或 Series 条目 ID |
+| Fields | string | 是 | `Overview,People,Genres,Studios,PrimaryImageAspectRatio,PrimaryImageTag,ImageTags,BackdropImageTags,UserData,RunTimeTicks,ProductionYear,CommunityRating,CriticRating,OfficialRating,PremiereDate,RecursiveItemCount,ChildCount` |
+
+**落地实现:** `EmbyRepository.loadMediaDetail()` 在 Movie/Series 卡片 OK 后调用该接口，映射为 `EmbyMediaDetail`；Movie 只展示详情和播放按钮，Series 继续加载季列表。DTO 字段全部按可空处理。
+
+#### GET Shows/{seriesId}/Seasons
+**描述:** 获取电视剧季列表，用于 Series 详情页展示多季和每季剩余未播放数量。
+
+**请求参数:**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| seriesId | string | 是 | Series 条目 ID |
+| UserId | string | 是 | 当前用户 ID |
+| Fields | string | 是 | `Overview,PrimaryImageTag,ImageTags,BackdropImageTags,UserData,IndexNumber,ChildCount` |
+
+**落地实现:** Series 详情打开时按需调用。季卡片使用 `ChildCount` 显示集数，使用 `UserData.UnplayedItemCount` 显示“剩 n 集”角标；缺失或小于等于 0 时不显示角标。
+
+#### GET Shows/{seriesId}/Episodes
+**描述:** 获取某一季内的 Episode 列表，用于选中季后的剧集浏览和播放入口。
+
+**请求参数:**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| seriesId | string | 是 | Series 条目 ID |
+| UserId | string | 是 | 当前用户 ID |
+| SeasonId | string | 是 | Season 条目 ID |
+| Fields | string | 是 | `Overview,PrimaryImageTag,ImageTags,BackdropImageTags,ParentThumbItemId,ParentThumbImageTag,ParentBackdropItemId,ParentBackdropImageTags,ParentIndexNumber,IndexNumber,UserData,RunTimeTicks,SeriesId,SeriesName,SeasonName` |
+
+**落地实现:** 用户在 Series 详情页选择某一季时才调用该接口，不在首页或详情首屏预加载全部 Episode。Episode 卡片显示缩略图、剧名、SxxExx 和播放进度，OK 后走既有 `PlaybackInfo` + 播放上报路径。
+
 ### 图片资源
 
 #### GET Items/{itemId}/Images/{imageType}?tag={tag}

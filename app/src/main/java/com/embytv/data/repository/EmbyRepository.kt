@@ -14,6 +14,10 @@ import com.embytv.domain.model.EmbyHomeDashboard
 import com.embytv.domain.model.EmbyLibraryContent
 import com.embytv.domain.model.EmbyLibrarySummary
 import com.embytv.domain.model.EmbyLibraryLatestSection
+import com.embytv.domain.model.EmbyMediaDetail
+import com.embytv.domain.model.EmbyPersonSummary
+import com.embytv.domain.model.EmbySeasonEpisodes
+import com.embytv.domain.model.EmbySeasonSummary
 import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.NoOpEmbyCredentialStore
@@ -203,6 +207,73 @@ class EmbyRepository(
             }
         }
 
+    suspend fun loadMediaDetail(
+        session: EmbySession,
+        deviceId: String,
+        itemId: String,
+    ): Result<EmbyMediaDetail> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val authorization = buildAuthorizationHeader(deviceId, session.accessToken)
+            val item = api.getItem(
+                authorization = authorization,
+                userId = session.userId,
+                itemId = itemId,
+                fields = com.embytv.data.remote.EmbyApi.MEDIA_DETAIL_FIELDS,
+            )
+            val summary = requireNotNull(item.toMediaItemSummary(session.serverUrl)) {
+                "Emby 未返回媒体详情"
+            }
+            val seasons = if (summary.type.equals("Series", ignoreCase = true)) {
+                api.getSeasons(
+                    authorization = authorization,
+                    seriesId = summary.id,
+                    userId = session.userId,
+                    fields = com.embytv.data.remote.EmbyApi.SEASON_FIELDS,
+                ).items.mapNotNull { it.toSeasonSummary(session.serverUrl) }
+            } else {
+                emptyList()
+            }
+            EmbyMediaDetail(
+                item = summary,
+                people = item.people.mapNotNull { person ->
+                    val name = person.name?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                    EmbyPersonSummary(
+                        id = person.id,
+                        name = name,
+                        role = person.role,
+                        type = person.type,
+                    )
+                },
+                genres = item.genres.filter { it.isNotBlank() },
+                studios = item.studios.mapNotNull { it.name?.takeIf { name -> name.isNotBlank() } },
+                communityRating = item.communityRating,
+                officialRating = item.officialRating,
+                premiereDate = item.premiereDate,
+                seasons = seasons,
+            )
+        }
+    }
+
+    suspend fun loadSeasonEpisodes(
+        session: EmbySession,
+        deviceId: String,
+        seriesId: String,
+        season: EmbySeasonSummary,
+    ): Result<EmbySeasonEpisodes> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val episodes = api.getEpisodes(
+                authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                seriesId = seriesId,
+                userId = session.userId,
+                seasonId = season.id,
+                fields = com.embytv.data.remote.EmbyApi.SEASON_EPISODE_FIELDS,
+            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+            EmbySeasonEpisodes(season = season, episodes = episodes)
+        }
+    }
+
     fun createPlaybackSource(session: EmbySession, item: MediaItemSummary): PlaybackSource =
         PlaybackSource(
             itemId = item.id,
@@ -340,6 +411,30 @@ class EmbyRepository(
             childCount = childCount,
             recursiveItemCount = recursiveItemCount,
             dateCreated = dateCreated,
+        )
+    }
+
+    private fun EmbyItemDto.toSeasonSummary(serverUrl: String): EmbySeasonSummary? {
+        val id = id ?: return null
+        val count = userData?.unplayedItemCount
+        return EmbySeasonSummary(
+            id = id,
+            name = name.orEmpty().ifBlank {
+                indexNumber?.let { "第 $it 季" } ?: "Season"
+            },
+            indexNumber = indexNumber,
+            imageUrl = streamUrlBuilder.buildPrimaryImageUrl(
+                serverUrl = serverUrl,
+                itemId = id,
+                tag = primaryTag(),
+            ) ?: streamUrlBuilder.buildPrimaryImageUrl(
+                serverUrl = serverUrl,
+                itemId = id,
+                tag = null,
+                allowUntagged = true,
+            ),
+            episodeCount = childCount,
+            unplayedItemCount = count?.takeIf { it > 0 },
         )
     }
 

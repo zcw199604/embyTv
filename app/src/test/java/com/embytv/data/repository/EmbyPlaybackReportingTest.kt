@@ -110,6 +110,13 @@ private class ReportingFakeEmbyApi : EmbyApi {
         enableUserData: Boolean,
     ): EmbyItemsResponse = error("Not used")
 
+    override suspend fun getItem(
+        authorization: String,
+        userId: String,
+        itemId: String,
+        fields: String,
+    ): EmbyItemDto = error("Not used")
+
     override suspend fun getViews(
         authorization: String,
         userId: String,
@@ -146,6 +153,21 @@ private class ReportingFakeEmbyApi : EmbyApi {
         fields: String,
         limit: Int,
     ): List<EmbyItemDto> = error("Not used")
+
+    override suspend fun getSeasons(
+        authorization: String,
+        seriesId: String,
+        userId: String,
+        fields: String,
+    ): EmbyItemsResponse = error("Not used")
+
+    override suspend fun getEpisodes(
+        authorization: String,
+        seriesId: String,
+        userId: String,
+        seasonId: String,
+        fields: String,
+    ): EmbyItemsResponse = error("Not used")
 
     override suspend fun getPlaybackInfo(
         authorization: String,

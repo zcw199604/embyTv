@@ -2,6 +2,7 @@ package com.embytv.data.remote
 
 import com.embytv.data.remote.dto.EmbyAuthRequest
 import com.embytv.data.remote.dto.EmbyAuthResponse
+import com.embytv.data.remote.dto.EmbyItemDto
 import com.embytv.data.remote.dto.EmbyItemsResponse
 import com.embytv.data.remote.dto.EmbyPlaybackInfoResponse
 import com.embytv.data.remote.dto.EmbyPlaybackProgressRequest
@@ -36,6 +37,14 @@ interface EmbyApi {
         @Query("SortOrder") sortOrder: String? = null,
         @Query("EnableUserData") enableUserData: Boolean = true,
     ): EmbyItemsResponse
+
+    @GET("Users/{userId}/Items/{itemId}")
+    suspend fun getItem(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("itemId") itemId: String,
+        @Query("Fields") fields: String = MEDIA_DETAIL_FIELDS,
+    ): EmbyItemDto
 
     @GET("Users/{userId}/Views")
     suspend fun getViews(
@@ -78,6 +87,23 @@ interface EmbyApi {
         @Query("Limit") limit: Int = 24,
     ): List<com.embytv.data.remote.dto.EmbyItemDto>
 
+    @GET("Shows/{seriesId}/Seasons")
+    suspend fun getSeasons(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("seriesId") seriesId: String,
+        @Query("UserId") userId: String,
+        @Query("Fields") fields: String = SEASON_FIELDS,
+    ): EmbyItemsResponse
+
+    @GET("Shows/{seriesId}/Episodes")
+    suspend fun getEpisodes(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("seriesId") seriesId: String,
+        @Query("UserId") userId: String,
+        @Query("SeasonId") seasonId: String,
+        @Query("Fields") fields: String = SEASON_EPISODE_FIELDS,
+    ): EmbyItemsResponse
+
     @GET("Items/{itemId}/PlaybackInfo")
     suspend fun getPlaybackInfo(
         @Header("X-Emby-Authorization") authorization: String,
@@ -106,5 +132,11 @@ interface EmbyApi {
     companion object {
         const val MEDIA_ITEM_FIELDS =
             "Overview,PrimaryImageAspectRatio,PrimaryImageTag,ImageTags,BackdropImageTags,ParentThumbItemId,ParentThumbImageTag,ParentBackdropItemId,ParentBackdropImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,SeasonName,IndexNumber,ParentIndexNumber,RecursiveItemCount,ChildCount"
+        const val MEDIA_DETAIL_FIELDS =
+            "Overview,People,Genres,Studios,PrimaryImageAspectRatio,PrimaryImageTag,ImageTags,BackdropImageTags,UserData,RunTimeTicks,ProductionYear,CommunityRating,CriticRating,OfficialRating,PremiereDate,RecursiveItemCount,ChildCount"
+        const val SEASON_FIELDS =
+            "Overview,PrimaryImageTag,ImageTags,BackdropImageTags,UserData,IndexNumber,ChildCount"
+        const val SEASON_EPISODE_FIELDS =
+            "Overview,PrimaryImageTag,ImageTags,BackdropImageTags,ParentThumbItemId,ParentThumbImageTag,ParentBackdropItemId,ParentBackdropImageTags,ParentIndexNumber,IndexNumber,UserData,RunTimeTicks,SeriesId,SeriesName,SeasonName"
     }
 }

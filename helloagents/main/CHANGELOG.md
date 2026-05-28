@@ -5,7 +5,18 @@
 
 ## [Unreleased]
 
-暂无。
+### 新增
+- 新增 Movie/Series 媒体详情页，Movie 显示简介、演员、类型、年份、评分和播放按钮，Series 显示多季列表。
+- 新增 Emby 详情、季列表和季内 Episode 接口聚合: `Users/{userId}/Items/{itemId}`、`Shows/{seriesId}/Seasons`、`Shows/{seriesId}/Episodes`。
+- 新增季内 Episode 列表，Episode 卡片可继续进入既有播放详情读取和播放状态上报路径。
+
+### 变更
+- 首页、媒体库列表和收藏页中 Movie/Series 卡片 OK 行为改为进入详情页；Episode 保持直接播放。
+- Series 季卡片使用 `UserData.UnplayedItemCount` 显示“剩 n 集”角标，缺失或为 0 时不显示。
+
+### 验证
+- `.\gradlew.bat :app:testDebugUnitTest` 通过。
+- `.\gradlew.bat :app:assembleDebug` 通过。
 
 ## [0.2.0] - 2026-05-28
 

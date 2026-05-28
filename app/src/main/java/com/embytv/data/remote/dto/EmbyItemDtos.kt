@@ -38,7 +38,25 @@ data class EmbyItemDto(
     @SerializedName("ParentIndexNumber") val parentIndexNumber: Int? = null,
     @SerializedName("IndexNumber") val indexNumber: Int? = null,
     @SerializedName("ProductionYear") val productionYear: Int? = null,
+    @SerializedName("Genres") val genres: List<String> = emptyList(),
+    @SerializedName("Studios") val studios: List<EmbyStudioDto> = emptyList(),
+    @SerializedName("People") val people: List<EmbyPersonDto> = emptyList(),
+    @SerializedName("CommunityRating") val communityRating: Double? = null,
+    @SerializedName("CriticRating") val criticRating: Double? = null,
+    @SerializedName("OfficialRating") val officialRating: String? = null,
+    @SerializedName("PremiereDate") val premiereDate: String? = null,
     @SerializedName("DateCreated") val dateCreated: String? = null,
+)
+
+data class EmbyStudioDto(
+    @SerializedName("Name") val name: String?,
+)
+
+data class EmbyPersonDto(
+    @SerializedName("Id") val id: String?,
+    @SerializedName("Name") val name: String?,
+    @SerializedName("Role") val role: String?,
+    @SerializedName("Type") val type: String?,
 )
 
 data class EmbyUserDataDto(
