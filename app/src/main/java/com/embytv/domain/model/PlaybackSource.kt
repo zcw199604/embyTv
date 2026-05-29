@@ -7,8 +7,43 @@ data class PlaybackSource(
     val session: EmbySession? = null,
     val deviceId: String? = null,
     val details: PlaybackDetails = PlaybackDetails(),
+    val queue: PlaybackQueue? = null,
     val danmaku: List<DanmakuCue> = emptyList(),
 )
+
+data class PlaybackQueue(
+    val previous: MediaItemSummary? = null,
+    val current: MediaItemSummary,
+    val next: MediaItemSummary? = null,
+    val autoPlayNext: Boolean = true,
+) {
+    companion object {
+        fun from(items: List<MediaItemSummary>, currentId: String, autoPlayNext: Boolean = true): PlaybackQueue? {
+            val index = items.indexOfFirst { it.id == currentId }
+            if (index < 0) return null
+            return PlaybackQueue(
+                previous = items.getOrNull(index - 1),
+                current = items[index],
+                next = items.getOrNull(index + 1),
+                autoPlayNext = autoPlayNext,
+            )
+        }
+    }
+}
+
+data class PlayerTrackOption(
+    val id: String,
+    val label: String,
+    val type: PlayerTrackType,
+    val trackGroup: androidx.media3.common.TrackGroup,
+    val trackIndex: Int,
+    val selected: Boolean = false,
+)
+
+enum class PlayerTrackType {
+    Audio,
+    Subtitle,
+}
 
 data class PlaybackDetails(
     val playSessionId: String? = null,

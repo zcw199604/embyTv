@@ -15,6 +15,9 @@ data class PlayerOsdState(
     val danmakuPaused: Boolean = false,
     val selectedQuickPanel: PlayerQuickPanel? = null,
     val feedbackMessage: String? = null,
+    val audioTracks: List<com.embytv.domain.model.PlayerTrackOption> = emptyList(),
+    val subtitleTracks: List<com.embytv.domain.model.PlayerTrackOption> = emptyList(),
+    val subtitleDisabled: Boolean = false,
 ) {
     val progressFraction: Float
         get() = if (durationMs <= 0L) {
@@ -33,6 +36,11 @@ sealed interface PlayerOsdAction {
     data object ClearFeedback : PlayerOsdAction
     data class UnsupportedAction(val message: String) : PlayerOsdAction
     data class SelectQuickPanel(val panel: PlayerQuickPanel?) : PlayerOsdAction
+    data class TracksChanged(
+        val audioTracks: List<com.embytv.domain.model.PlayerTrackOption>,
+        val subtitleTracks: List<com.embytv.domain.model.PlayerTrackOption>,
+    ) : PlayerOsdAction
+    data object DisableSubtitles : PlayerOsdAction
     data class ProgressChanged(val positionMs: Long, val durationMs: Long) : PlayerOsdAction
 }
 
@@ -80,6 +88,25 @@ object PlayerOsdReducer {
             }
             is PlayerOsdAction.SelectQuickPanel -> {
                 PlayerOsdResult(state.copy(visible = true, selectedQuickPanel = action.panel, feedbackMessage = null))
+            }
+            is PlayerOsdAction.TracksChanged -> {
+                PlayerOsdResult(
+                    state.copy(
+                        audioTracks = action.audioTracks,
+                        subtitleTracks = action.subtitleTracks,
+                        subtitleDisabled = state.subtitleDisabled && action.subtitleTracks.none { it.selected },
+                    ),
+                )
+            }
+            PlayerOsdAction.DisableSubtitles -> {
+                PlayerOsdResult(
+                    state.copy(
+                        visible = true,
+                        selectedQuickPanel = PlayerQuickPanel.Subtitles,
+                        subtitleDisabled = true,
+                        feedbackMessage = "字幕已关闭",
+                    ),
+                )
             }
             is PlayerOsdAction.ProgressChanged -> {
                 PlayerOsdResult(

@@ -22,6 +22,41 @@ data class MediaItemSummary(
     val childCount: Int? = null,
     val recursiveItemCount: Int? = null,
     val dateCreated: String? = null,
+    val isFavorite: Boolean = false,
+    val played: Boolean = false,
+    val playCount: Int? = null,
+    val playlistItemId: String? = null,
+)
+
+enum class DiscoveryKind {
+    Collections,
+    Playlists,
+    Genres,
+    Persons,
+}
+
+data class DiscoveryEntrySummary(
+    val id: String,
+    val name: String,
+    val type: String,
+    val kind: DiscoveryKind,
+    val imageUrl: String?,
+    val itemCount: Int? = null,
+)
+
+data class EmbyDiscoveryContent(
+    val kind: DiscoveryKind,
+    val entries: List<DiscoveryEntrySummary> = emptyList(),
+)
+
+data class DiscoveryEntryItems(
+    val entry: DiscoveryEntrySummary,
+    val items: List<MediaItemSummary> = emptyList(),
+)
+
+data class EmbySearchResults(
+    val query: String,
+    val items: List<MediaItemSummary> = emptyList(),
 )
 
 data class EmbyLibrarySummary(
@@ -54,6 +89,7 @@ data class EmbyHomeDashboard(
     val resumeItems: List<MediaItemSummary> = emptyList(),
     val latestItems: List<MediaItemSummary> = emptyList(),
     val libraryLatestSections: List<EmbyLibraryLatestSection> = emptyList(),
+    val nextUpItems: List<MediaItemSummary> = emptyList(),
 )
 
 data class EmbyPersonSummary(

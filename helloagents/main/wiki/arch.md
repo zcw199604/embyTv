@@ -8,10 +8,14 @@ flowchart TD
     App --> Player["PlayerScreen"]
     Home --> Repo["EmbyRepository"]
     Home --> Sync["MobileSetupSyncServer"]
+    Home --> Search["Search / Discovery UI State"]
+    Home --> ImageAuth["LocalEmbyImageAuthorizationHeader"]
     Sync --> Phone["手机浏览器配置页"]
     Home --> Store["EncryptedEmbyCredentialStore"]
     Repo --> Api["Retrofit EmbyApi"]
     Repo --> Url["EmbyStreamUrlBuilder"]
+    ImageAuth --> Coil["Coil ImageRequest"]
+    Repo --> StoreList["SavedEmbyCredentialList"]
     Player --> Media3["Media3PlayerFactory / ExoPlayer"]
     Player --> Danmaku["AkDanmakuBridge / DanmakuPlayer"]
     Core["DefaultAppContainer"] --> Repo
@@ -61,3 +65,8 @@ sequenceDiagram
 | ADR-010 | 在通用可聚焦面板统一处理 TV OK 键 | 2026-05-28 | ✅已采纳 | ui/components | [how.md](../history/2026-05/202605281928_remote_ok_single_press_fix/how.md#adr-010-在通用可聚焦面板统一处理-tv-ok-键) |
 | ADR-011 | 首页性能优化采用启动顺序调整与受控并发而非本地持久缓存 | 2026-05-28 | ✅已采纳 | ui/home, data/repository | [how.md](../history/2026-05/202605281948_performance_optimization/how.md#adr-011-首页性能优化采用启动顺序调整与受控并发而非本地持久缓存) |
 | ADR-012 | API service 按 baseUrl 和 token 复用 | 2026-05-28 | ✅已采纳 | data/remote | [how.md](../history/2026-05/202605281948_performance_optimization/how.md#adr-012-api-service-按-baseurl-和-token-复用) |
+| ADR-013 | 使用通用发现页承载合集、播放列表、类型、演员 | 2026-05-29 | ✅已采纳 | ui/home, data | [how.md](../history/2026-05/202605291035_emby_tv_feature_completion/how.md#adr-013-使用通用发现页承载合集播放列表类型演员) |
+| ADR-014 | 播放轨道切换以 Media3 当前 Tracks 为准 | 2026-05-29 | ✅已采纳 | ui/player, domain | [how.md](../history/2026-05/202605291035_emby_tv_feature_completion/how.md#adr-014-播放轨道切换以-media3-当前-tracks-为准) |
+| ADR-015 | 多凭证采用兼容迁移而非清空旧凭证 | 2026-05-29 | ✅已采纳 | data/local, domain | [how.md](../history/2026-05/202605291035_emby_tv_feature_completion/how.md#adr-015-多凭证采用兼容迁移而非清空旧凭证) |
+| ADR-202605291303 | 图片认证优先使用请求 Header | 2026-05-29 | ✅已采纳 | ui/components, data/repository | [how.md](../history/2026-05/202605291303_emby_review_issue_fixes/how.md#adr-202605291303-图片认证优先使用请求-header) |
+| ADR-202605291304 | 播放切集上报由当前播放源驱动 | 2026-05-29 | ✅已采纳 | ui/player, data/repository | [how.md](../history/2026-05/202605291303_emby_review_issue_fixes/how.md#adr-202605291304-播放切集上报由当前播放源驱动) |

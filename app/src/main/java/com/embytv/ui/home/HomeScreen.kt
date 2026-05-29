@@ -1,6 +1,7 @@
 package com.embytv.ui.home
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,13 +19,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,15 +43,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
+import com.embytv.domain.model.DiscoveryEntrySummary
+import com.embytv.domain.model.DiscoveryKind
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.PlaybackSource
+import com.embytv.domain.model.SavedEmbyCredential
+import com.embytv.BuildConfig
 import com.embytv.ui.components.GlassPanel
 import com.embytv.ui.components.LibraryCard
+import com.embytv.ui.components.LocalEmbyImageAuthorizationHeader
 import com.embytv.ui.components.MediaPosterCard
 import com.embytv.ui.components.NavigationDrawerPanel
 import com.embytv.ui.components.NetworkBackdropImage
@@ -67,37 +79,179 @@ fun HomeScreen(
     val coroutineScope = rememberCoroutineScope()
 
     if (state.session == null) {
-        SetupScreen(
-            state = state,
-            onServerHostChange = viewModel::updateServerHost,
-            onServerProtocolChange = viewModel::updateServerProtocol,
-            onServerPortChange = viewModel::updateServerPort,
-            onServerPathChange = viewModel::updateServerPath,
-            onUsernameChange = viewModel::updateUsername,
-            onPasswordChange = viewModel::updatePassword,
-            onConnect = viewModel::connect,
-        )
+        if (state.showCredentialPicker) {
+            CredentialPickerScreen(
+                state = state,
+                onSelect = viewModel::selectSavedCredential,
+                onDelete = viewModel::deleteSavedCredential,
+                onConfirm = viewModel::confirmPendingAction,
+                onCancelConfirmation = viewModel::clearConfirmation,
+                onAdd = viewModel::startNewConnection,
+            )
+        } else {
+            SetupScreen(
+                state = state,
+                onServerHostChange = viewModel::updateServerHost,
+                onServerProtocolChange = viewModel::updateServerProtocol,
+                onServerPortChange = viewModel::updateServerPort,
+                onServerPathChange = viewModel::updateServerPath,
+                onUsernameChange = viewModel::updateUsername,
+                onPasswordChange = viewModel::updatePassword,
+                onConnect = viewModel::connect,
+            )
+        }
     } else {
-        HomeDashboardScreen(
-            state = state,
-            onOpenFavorites = viewModel::openFavorites,
-            onCloseFavorites = viewModel::closeFavorites,
-            onSelectFavoriteCategory = viewModel::selectFavoriteCategory,
-            onRetryFavorites = viewModel::retryFavorites,
-            onOpenLibrary = viewModel::openLibrary,
-            onCloseLibrary = viewModel::closeLibrary,
-            onRetryLibrary = viewModel::retryLibrary,
-            onOpenMediaDetail = viewModel::openMediaDetail,
-            onCloseMediaDetail = viewModel::closeMediaDetail,
-            onBackFromDetail = viewModel::backFromDetail,
-            onRetryMediaDetail = viewModel::retryMediaDetail,
-            onOpenSeasonEpisodes = viewModel::openSeasonEpisodes,
-            onPlay = { item ->
-                coroutineScope.launch {
-                    viewModel.createPlaybackSource(item)?.let(onPlay)
+        CompositionLocalProvider(LocalEmbyImageAuthorizationHeader provides state.imageAuthorizationHeader) {
+            HomeDashboardScreen(
+                state = state,
+                onOpenFavorites = viewModel::openFavorites,
+                onCloseFavorites = viewModel::closeFavorites,
+                onSelectFavoriteCategory = viewModel::selectFavoriteCategory,
+                onRetryFavorites = viewModel::retryFavorites,
+                onOpenSearch = viewModel::openSearch,
+                onCloseSearch = viewModel::closeSearch,
+                onSearchQueryChange = viewModel::updateSearchQuery,
+                onRetrySearch = viewModel::retrySearch,
+                onClearSearch = viewModel::clearSearch,
+                onOpenDiscovery = viewModel::openDiscovery,
+                onBackFromDiscovery = viewModel::backFromDiscovery,
+                onCloseDiscovery = viewModel::closeDiscovery,
+                onRetryDiscovery = viewModel::retryDiscovery,
+                onOpenDiscoveryEntry = viewModel::openDiscoveryEntry,
+                onRetryDiscoveryEntry = viewModel::retryDiscoveryEntry,
+                onOpenLibrary = viewModel::openLibrary,
+                onCloseLibrary = viewModel::closeLibrary,
+                onRetryLibrary = viewModel::retryLibrary,
+                onOpenMediaDetail = viewModel::openMediaDetail,
+                onCloseMediaDetail = viewModel::closeMediaDetail,
+                onBackFromDetail = viewModel::backFromDetail,
+                onRetryMediaDetail = viewModel::retryMediaDetail,
+                onOpenSeasonEpisodes = viewModel::openSeasonEpisodes,
+                onToggleFavorite = viewModel::toggleFavorite,
+                onTogglePlayed = viewModel::togglePlayed,
+                onClearResumeProgress = viewModel::clearResumeProgress,
+                onConfirm = viewModel::confirmPendingAction,
+                onCancelConfirmation = viewModel::clearConfirmation,
+                onPlay = { item ->
+                    coroutineScope.launch {
+                        viewModel.createPlaybackSource(item)?.let(onPlay)
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun CredentialPickerScreen(
+    state: HomeUiState,
+    onSelect: (SavedEmbyCredential) -> Unit,
+    onDelete: (SavedEmbyCredential) -> Unit,
+    onConfirm: () -> Unit,
+    onCancelConfirmation: () -> Unit,
+    onAdd: () -> Unit,
+) {
+    val addFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        addFocusRequester.requestFocus()
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(CinematicGlassColors.Background)
+                .padding(
+                    horizontal = CinematicGlassSpacing.SafeAreaX,
+                    vertical = CinematicGlassSpacing.SafeAreaY,
+                ),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "选择 Emby 身份",
+                            color = CinematicGlassColors.OnSurface,
+                            fontSize = 42.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "选择已保存的服务器和用户，或添加新的连接。",
+                            color = CinematicGlassColors.OnSurfaceVariant,
+                            fontSize = 16.sp,
+                        )
+                    }
+                    PrimaryTvButton(
+                        text = "添加服务器",
+                        icon = Icons.Filled.Search,
+                        onClick = onAdd,
+                        modifier = Modifier.focusRequester(addFocusRequester),
+                    )
                 }
-            },
+            }
+            if (state.errorMessage != null) {
+                item { LibraryStatePanel(title = "凭证恢复失败", subtitle = state.errorMessage) }
+            }
+            if (state.savedCredentials.isEmpty()) {
+                item { LibraryStatePanel(title = "暂无已保存身份", subtitle = "请添加服务器并登录。") }
+            } else {
+                items(state.savedCredentials, key = { it.uniqueKey }) { credential ->
+                    CredentialCard(
+                        credential = credential,
+                        onSelect = { onSelect(credential) },
+                        onDelete = { onDelete(credential) },
+                    )
+                }
+            }
+        }
+        ConfirmationOverlay(
+            confirmation = state.confirmation,
+            onConfirm = onConfirm,
+            onCancel = onCancelConfirmation,
         )
+    }
+}
+
+@Composable
+private fun CredentialCard(
+    credential: SavedEmbyCredential,
+    onSelect: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    GlassPanel(modifier = Modifier.fillMaxWidth(), cornerRadius = 12.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(22.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
+                Text(
+                    text = credential.username,
+                    color = CinematicGlassColors.OnSurface,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = credential.serverUrl,
+                    color = CinematicGlassColors.OnSurfaceVariant,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PrimaryTvButton(text = "进入", icon = Icons.Filled.PlayArrow, onClick = onSelect)
+                PrimaryTvButton(text = "删除", icon = Icons.Filled.Clear, onClick = onDelete)
+            }
+        }
     }
 }
 
@@ -108,6 +262,17 @@ private fun HomeDashboardScreen(
     onCloseFavorites: () -> Unit,
     onSelectFavoriteCategory: (FavoriteCategory) -> Unit,
     onRetryFavorites: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onCloseSearch: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onRetrySearch: () -> Unit,
+    onClearSearch: () -> Unit,
+    onOpenDiscovery: (DiscoveryKind) -> Unit,
+    onBackFromDiscovery: () -> Unit,
+    onCloseDiscovery: () -> Unit,
+    onRetryDiscovery: () -> Unit,
+    onOpenDiscoveryEntry: (DiscoveryEntrySummary) -> Unit,
+    onRetryDiscoveryEntry: () -> Unit,
     onOpenLibrary: (String) -> Unit,
     onCloseLibrary: () -> Unit,
     onRetryLibrary: () -> Unit,
@@ -116,6 +281,11 @@ private fun HomeDashboardScreen(
     onBackFromDetail: () -> Unit,
     onRetryMediaDetail: () -> Unit,
     onOpenSeasonEpisodes: (com.embytv.domain.model.EmbySeasonSummary) -> Unit,
+    onToggleFavorite: (MediaItemSummary) -> Unit,
+    onTogglePlayed: (MediaItemSummary) -> Unit,
+    onClearResumeProgress: (MediaItemSummary) -> Unit,
+    onConfirm: () -> Unit,
+    onCancelConfirmation: () -> Unit,
     onPlay: (MediaItemSummary) -> Unit,
 ) {
     val dashboard = remember(state.dashboard) { HomeDashboardMapper.map(state.dashboard) }
@@ -162,7 +332,33 @@ private fun HomeDashboardScreen(
                 onClose = onCloseMediaDetail,
                 onRetry = onRetryMediaDetail,
                 onOpenSeason = onOpenSeasonEpisodes,
+                onToggleFavorite = onToggleFavorite,
+                onTogglePlayed = onTogglePlayed,
+                onClearResumeProgress = onClearResumeProgress,
                 onPlay = onPlay,
+            )
+        } else if (state.search.isOpen) {
+            SearchScreen(
+                state = state.search,
+                onBack = onCloseSearch,
+                onQueryChange = onSearchQueryChange,
+                onRetry = onRetrySearch,
+                onClear = onClearSearch,
+                onPlay = onPlay,
+                onOpenMediaDetail = onOpenMediaDetail,
+                onUnsupported = { hintMessage = it },
+            )
+        } else if (state.discoveryContent.isOpen) {
+            DiscoveryScreen(
+                state = state.discoveryContent,
+                onBack = onBackFromDiscovery,
+                onClose = onCloseDiscovery,
+                onRetry = onRetryDiscovery,
+                onRetryEntry = onRetryDiscoveryEntry,
+                onOpenEntry = onOpenDiscoveryEntry,
+                onPlay = onPlay,
+                onOpenMediaDetail = onOpenMediaDetail,
+                onUnsupported = { hintMessage = it },
             )
         } else if (state.favoriteContent.isOpen) {
             FavoriteContentScreen(
@@ -196,8 +392,9 @@ private fun HomeDashboardScreen(
             item {
                 TopChromeBar(
                     title = "EMBY",
-                    subtitle = "Subtitles: ON · v0.2.0",
+                    subtitle = "Subtitles: ON · v${BuildConfig.VERSION_NAME}",
                     onMenuClick = { drawerState = drawerState.open() },
+                    onSearchClick = onOpenSearch,
                     menuFocusRequester = menuFocusRequester,
                 )
             }
@@ -286,15 +483,27 @@ private fun HomeDashboardScreen(
             onClose = { drawerState = drawerState.close() },
             onItemClick = { item ->
                 if (item.enabled) {
-                    if (item.id == FAVORITES_NAVIGATION_ID) {
-                        onOpenFavorites()
-                    } else {
-                        onOpenLibrary(item.id)
+                    when (item.id) {
+                        SEARCH_NAVIGATION_ID -> onOpenSearch()
+                        FAVORITES_NAVIGATION_ID -> onOpenFavorites()
+                        else -> {
+                            val discoveryKind = HomeDashboardMapper.discoveryKindFromNavigationId(item.id)
+                            if (discoveryKind != null) {
+                                onOpenDiscovery(discoveryKind)
+                            } else {
+                                onOpenLibrary(item.id)
+                            }
+                        }
                     }
                     drawerState = drawerState.close()
                 }
             },
             onUnsupported = { hintMessage = it },
+        )
+        ConfirmationOverlay(
+            confirmation = state.confirmation,
+            onConfirm = onConfirm,
+            onCancel = onCancelConfirmation,
         )
     }
 }
@@ -593,6 +802,292 @@ private fun FavoriteContentUiState.favoriteStatusLabel(): String {
 }
 
 @Composable
+private fun SearchScreen(
+    state: SearchUiState,
+    onBack: () -> Unit,
+    onQueryChange: (String) -> Unit,
+    onRetry: () -> Unit,
+    onClear: () -> Unit,
+    onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    val backFocusRequester = remember { FocusRequester() }
+    val queryFocusRequester = remember { FocusRequester() }
+    val cards = remember(state.results) { SearchMapper.map(state.results) }
+    BackHandler(enabled = true, onBack = onBack)
+    LaunchedEffect(Unit) {
+        queryFocusRequester.requestFocus()
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = CinematicGlassSpacing.SafeAreaX,
+                vertical = CinematicGlassSpacing.SafeAreaY,
+            ),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        item {
+            DetailTopBar(
+                title = "搜索",
+                subtitle = state.searchStatusLabel(),
+                backFocusRequester = backFocusRequester,
+                onBack = onBack,
+                onRetry = if (state.errorMessage != null) onRetry else null,
+            )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GlassPanel(modifier = Modifier.weight(1f), cornerRadius = 12.dp) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.tv.material3.Icon(
+                            Icons.Filled.Search,
+                            contentDescription = null,
+                            tint = CinematicGlassColors.Primary,
+                        )
+                        BasicTextField(
+                            value = state.query,
+                            onValueChange = onQueryChange,
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(queryFocusRequester),
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                color = CinematicGlassColors.OnSurface,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                            decorationBox = { inner ->
+                                if (state.query.isBlank()) {
+                                    Text(
+                                        text = "输入电影、剧集、合集或播放列表",
+                                        color = CinematicGlassColors.OnSurfaceVariant,
+                                        fontSize = 20.sp,
+                                    )
+                                }
+                                inner()
+                            },
+                        )
+                    }
+                }
+                PrimaryTvButton(
+                    text = "清空",
+                    icon = Icons.Filled.Clear,
+                    enabled = state.query.isNotBlank(),
+                    onClick = onClear,
+                )
+            }
+        }
+
+        when {
+            state.query.isBlank() -> item { LibraryStatePanel(title = "输入关键词开始搜索", subtitle = "可用遥控器选择输入框，也可以连接实体键盘输入。") }
+            state.isLoading -> item { LibraryStatePanel(title = "正在搜索", subtitle = "正在从 Emby 查询匹配资源。") }
+            state.errorMessage != null -> item { LibraryStatePanel(title = "搜索失败", subtitle = state.errorMessage) }
+            state.results.items.isEmpty() -> item { LibraryStatePanel(title = "没有找到结果", subtitle = "换一个关键词再试。") }
+            else -> items(state.results.items.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
+                MediaGridRow(
+                    items = rowItems,
+                    cards = cards,
+                    onPlay = onPlay,
+                    onOpenMediaDetail = onOpenMediaDetail,
+                    onUnsupported = onUnsupported,
+                )
+            }
+        }
+
+        item { Spacer(modifier = Modifier.height(108.dp)) }
+    }
+}
+
+@Composable
+private fun DiscoveryScreen(
+    state: DiscoveryContentUiState,
+    onBack: () -> Unit,
+    onClose: () -> Unit,
+    onRetry: () -> Unit,
+    onRetryEntry: () -> Unit,
+    onOpenEntry: (DiscoveryEntrySummary) -> Unit,
+    onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    val backFocusRequester = remember { FocusRequester() }
+    BackHandler(enabled = true, onBack = onBack)
+    LaunchedEffect(state.kind, state.isEntryOpen) {
+        backFocusRequester.requestFocus()
+    }
+
+    if (state.isEntryOpen) {
+        DiscoveryEntryItemsScreen(
+            state = state,
+            backFocusRequester = backFocusRequester,
+            onBack = onBack,
+            onRetry = onRetryEntry,
+            onPlay = onPlay,
+            onOpenMediaDetail = onOpenMediaDetail,
+            onUnsupported = onUnsupported,
+        )
+        return
+    }
+
+    val kind = state.kind ?: DiscoveryKind.Collections
+    val content = state.content
+    val cards = remember(content) { content?.let(DiscoveryMapper::entryCards).orEmpty() }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = CinematicGlassSpacing.SafeAreaX,
+                vertical = CinematicGlassSpacing.SafeAreaY,
+            ),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        item {
+            DetailTopBar(
+                title = DiscoveryMapper.title(kind),
+                subtitle = state.discoveryStatusLabel(),
+                backFocusRequester = backFocusRequester,
+                onBack = onClose,
+                onRetry = if (state.errorMessage != null) onRetry else null,
+            )
+        }
+        when {
+            state.isLoading -> item { LibraryStatePanel(title = "正在加载${DiscoveryMapper.title(kind)}", subtitle = "正在从 Emby 获取列表。") }
+            state.errorMessage != null -> item { LibraryStatePanel(title = "${DiscoveryMapper.title(kind)}加载失败", subtitle = state.errorMessage) }
+            content?.entries.isNullOrEmpty() -> item { LibraryStatePanel(title = "暂无${DiscoveryMapper.title(kind)}", subtitle = "当前服务器没有返回可展示内容。") }
+            else -> items(content.entries.chunked(5), key = { row -> row.joinToString { it.id } }) { rowEntries ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap),
+                ) {
+                    rowEntries.forEach { entry ->
+                        val card = cards.firstOrNull { it.id == entry.id }
+                            ?: MediaCardUiModel(entry.id, entry.name, entry.kind.titleLabel(), entry.imageUrl, 0f, entry.type)
+                        MediaPosterCard(
+                            card = card,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onOpenEntry(entry) },
+                        )
+                    }
+                    repeat(5 - rowEntries.size) { Spacer(modifier = Modifier.weight(1f)) }
+                }
+            }
+        }
+        item { Spacer(modifier = Modifier.height(108.dp)) }
+    }
+}
+
+@Composable
+private fun DiscoveryEntryItemsScreen(
+    state: DiscoveryContentUiState,
+    backFocusRequester: FocusRequester,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    val entry = state.selectedEntry
+    val items = state.entryItems
+    val cards = remember(items) { items?.let(DiscoveryMapper::itemCards).orEmpty() }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = CinematicGlassSpacing.SafeAreaX,
+                vertical = CinematicGlassSpacing.SafeAreaY,
+            ),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        item {
+            DetailTopBar(
+                title = entry?.name ?: "发现内容",
+                subtitle = state.discoveryEntryStatusLabel(),
+                backFocusRequester = backFocusRequester,
+                onBack = onBack,
+                onRetry = if (state.entryErrorMessage != null) onRetry else null,
+            )
+        }
+        when {
+            state.isEntryLoading -> item { LibraryStatePanel(title = "正在加载资源", subtitle = "正在从 Emby 获取该入口下的媒体。") }
+            state.entryErrorMessage != null -> item { LibraryStatePanel(title = "资源加载失败", subtitle = state.entryErrorMessage) }
+            items?.items.isNullOrEmpty() -> item { LibraryStatePanel(title = "暂无资源", subtitle = "Emby 没有返回该入口下的媒体资源。") }
+            else -> items(items.items.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
+                MediaGridRow(
+                    items = rowItems,
+                    cards = cards,
+                    onPlay = onPlay,
+                    onOpenMediaDetail = onOpenMediaDetail,
+                    onUnsupported = onUnsupported,
+                )
+            }
+        }
+        item { Spacer(modifier = Modifier.height(108.dp)) }
+    }
+}
+
+@Composable
+private fun MediaGridRow(
+    items: List<MediaItemSummary>,
+    cards: List<MediaCardUiModel>,
+    onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap),
+    ) {
+        items.forEach { item ->
+            val card = cards.firstOrNull { it.id == item.id } ?: HomeDashboardMapper.mapMediaItem(item)
+            MediaPosterCard(
+                card = card,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    when {
+                        item.opensDetail() -> onOpenMediaDetail(item)
+                        item.type.equals("Episode", ignoreCase = true) -> onPlay(item)
+                        else -> onUnsupported("该资源暂不支持打开")
+                    }
+                },
+            )
+        }
+        repeat(5 - items.size) { Spacer(modifier = Modifier.weight(1f)) }
+    }
+}
+
+private fun SearchUiState.searchStatusLabel(): String = when {
+    isLoading -> "正在搜索"
+    errorMessage != null -> "搜索失败"
+    query.isBlank() -> "等待输入"
+    else -> "${results.items.size} 个结果"
+}
+
+private fun DiscoveryContentUiState.discoveryStatusLabel(): String = when {
+    isLoading -> "正在加载"
+    errorMessage != null -> "加载失败"
+    else -> "${content?.entries?.size ?: 0} 个入口"
+}
+
+private fun DiscoveryContentUiState.discoveryEntryStatusLabel(): String = when {
+    isEntryLoading -> "正在加载"
+    entryErrorMessage != null -> "加载失败"
+    else -> "${entryItems?.items?.size ?: 0} 个资源"
+}
+
+@Composable
 private fun MediaRow(
     cards: List<MediaCardUiModel>,
     mediaItems: List<MediaItemSummary>,
@@ -624,6 +1119,9 @@ private fun MediaDetailScreen(
     onClose: () -> Unit,
     onRetry: () -> Unit,
     onOpenSeason: (com.embytv.domain.model.EmbySeasonSummary) -> Unit,
+    onToggleFavorite: (MediaItemSummary) -> Unit,
+    onTogglePlayed: (MediaItemSummary) -> Unit,
+    onClearResumeProgress: (MediaItemSummary) -> Unit,
     onPlay: (MediaItemSummary) -> Unit,
 ) {
     BackHandler(enabled = true, onBack = onBack)
@@ -672,6 +1170,9 @@ private fun MediaDetailScreen(
                 MediaDetailContent(
                     detail = state.detail,
                     onOpenSeason = onOpenSeason,
+                    onToggleFavorite = onToggleFavorite,
+                    onTogglePlayed = onTogglePlayed,
+                    onClearResumeProgress = onClearResumeProgress,
                     onPlay = onPlay,
                 )
             }
@@ -687,6 +1188,9 @@ private fun MediaDetailScreen(
 private fun MediaDetailContent(
     detail: com.embytv.domain.model.EmbyMediaDetail,
     onOpenSeason: (com.embytv.domain.model.EmbySeasonSummary) -> Unit,
+    onToggleFavorite: (MediaItemSummary) -> Unit,
+    onTogglePlayed: (MediaItemSummary) -> Unit,
+    onClearResumeProgress: (MediaItemSummary) -> Unit,
     onPlay: (MediaItemSummary) -> Unit,
 ) {
     val uiModel = remember(detail) { HomeMediaDetailMapper.map(detail) }
@@ -758,6 +1262,23 @@ private fun MediaDetailContent(
                             enabled = firstSeason != null,
                             onClick = { firstSeason?.let(onOpenSeason) },
                             modifier = Modifier.focusRequester(playFocusRequester),
+                        )
+                    }
+                    PrimaryTvButton(
+                        text = if (detail.item.isFavorite) "取消收藏" else "收藏",
+                        icon = Icons.Filled.Star,
+                        onClick = { onToggleFavorite(detail.item) },
+                    )
+                    PrimaryTvButton(
+                        text = if (detail.item.played) "标记未播放" else "标记已播放",
+                        icon = Icons.Filled.Refresh,
+                        onClick = { onTogglePlayed(detail.item) },
+                    )
+                    if (detail.item.playbackPositionTicks > 0L) {
+                        PrimaryTvButton(
+                            text = "清除进度",
+                            icon = Icons.Filled.Clear,
+                            onClick = { onClearResumeProgress(detail.item) },
                         )
                     }
                 }
@@ -1017,6 +1538,68 @@ private fun DetailTopBar(
                 icon = Icons.Filled.Refresh,
                 onClick = onRetry,
             )
+        }
+    }
+}
+
+@Composable
+private fun ConfirmationOverlay(
+    confirmation: HomeConfirmationUiState?,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    if (confirmation == null) return
+    val cancelFocusRequester = remember { FocusRequester() }
+    BackHandler(enabled = true, onBack = onCancel)
+    LaunchedEffect(confirmation) {
+        cancelFocusRequester.requestFocus()
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.68f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        GlassPanel(
+            modifier = Modifier
+                .fillMaxWidth(0.46f)
+                .focusGroup(),
+            cornerRadius = 12.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(30.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                Text(
+                    text = confirmation.title,
+                    color = CinematicGlassColors.OnSurface,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = confirmation.message,
+                    color = CinematicGlassColors.OnSurfaceVariant,
+                    fontSize = 16.sp,
+                    lineHeight = 23.sp,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    PrimaryTvButton(
+                        text = "取消",
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        onClick = onCancel,
+                        modifier = Modifier.focusRequester(cancelFocusRequester),
+                    )
+                    PrimaryTvButton(
+                        text = confirmation.confirmLabel,
+                        icon = Icons.Filled.Clear,
+                        onClick = onConfirm,
+                    )
+                }
+            }
         }
     }
 }

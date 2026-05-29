@@ -8,6 +8,8 @@
 
 | 时间戳 | 功能名称 | 类型 | 状态 | 方案包路径 |
 |--------|----------|------|------|------------|
+| 202605291303 | emby_review_issue_fixes | 修复 | ✅已完成 | [202605291303_emby_review_issue_fixes](2026-05/202605291303_emby_review_issue_fixes/) |
+| 202605291035 | emby_tv_feature_completion | 功能 | ✅已完成 | [202605291035_emby_tv_feature_completion](2026-05/202605291035_emby_tv_feature_completion/) |
 | 202605281948 | performance_optimization | 优化 | ✅已完成 | [202605281948_performance_optimization](2026-05/202605281948_performance_optimization/) |
 | 202605281928 | remote_ok_single_press_fix | 修复 | ✅已完成 | [202605281928_remote_ok_single_press_fix](2026-05/202605281928_remote_ok_single_press_fix/) |
 | 202605281915 | coil_network_images_fix | 修复 | ✅已完成 | [202605281915_coil_network_images_fix](2026-05/202605281915_coil_network_images_fix/) |
@@ -28,6 +30,8 @@
 
 ### 2026-05
 
+- [202605291303_emby_review_issue_fixes](2026-05/202605291303_emby_review_issue_fixes/) - 修复播放切集上报、认证图片加载、搜索取消、危险操作确认和版本号一致性问题。
+- [202605291035_emby_tv_feature_completion](2026-05/202605291035_emby_tv_feature_completion/) - 补齐搜索、发现页、用户态写操作、播放队列、音字幕切换和多凭证列表基础能力。
 - [202605281948_performance_optimization](2026-05/202605281948_performance_optimization/) - 优化 token 冷启动、首页 Dashboard 受控并发、API service 复用和图片尺寸化。
 - [202605281928_remote_ok_single_press_fix](2026-05/202605281928_remote_ok_single_press_fix/) - 修复 TV 遥控器 OK/Enter 在通用媒体卡片和按钮上需要按两次才触发的问题。
 - [202605281915_coil_network_images_fix](2026-05/202605281915_coil_network_images_fix/) - 补齐 Coil 3 OkHttp 网络图片加载依赖，修复 Emby 封面全不显示。

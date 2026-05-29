@@ -8,8 +8,10 @@ import com.embytv.data.remote.dto.EmbyPlaybackInfoResponse
 import com.embytv.data.remote.dto.EmbyPlaybackProgressRequest
 import com.embytv.data.remote.dto.EmbyPlaybackStartRequest
 import com.embytv.data.remote.dto.EmbyPlaybackStoppedRequest
+import com.embytv.data.remote.dto.EmbyUserDataUpdateRequest
 import com.embytv.data.remote.dto.EmbyViewsResponse
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
@@ -36,6 +38,9 @@ interface EmbyApi {
         @Query("SortBy") sortBy: String? = null,
         @Query("SortOrder") sortOrder: String? = null,
         @Query("EnableUserData") enableUserData: Boolean = true,
+        @Query("SearchTerm") searchTerm: String? = null,
+        @Query("GenreIds") genreIds: String? = null,
+        @Query("PersonIds") personIds: String? = null,
     ): EmbyItemsResponse
 
     @GET("Users/{userId}/Items/{itemId}")
@@ -87,6 +92,51 @@ interface EmbyApi {
         @Query("Limit") limit: Int = 24,
     ): List<com.embytv.data.remote.dto.EmbyItemDto>
 
+    @GET("Shows/NextUp")
+    suspend fun getNextUp(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Query("UserId") userId: String,
+        @Query("Fields") fields: String = MEDIA_ITEM_FIELDS,
+        @Query("Limit") limit: Int = 12,
+        @Query("SeriesId") seriesId: String? = null,
+    ): EmbyItemsResponse
+
+    @GET("Genres")
+    suspend fun getGenres(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Query("UserId") userId: String,
+        @Query("Recursive") recursive: Boolean = true,
+        @Query("Fields") fields: String = MEDIA_ITEM_FIELDS,
+        @Query("StartIndex") startIndex: Int = 0,
+        @Query("Limit") limit: Int = 60,
+        @Query("SortBy") sortBy: String = "SortName",
+        @Query("SortOrder") sortOrder: String = "Ascending",
+        @Query("EnableUserData") enableUserData: Boolean = true,
+    ): EmbyItemsResponse
+
+    @GET("Persons")
+    suspend fun getPersons(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Query("UserId") userId: String,
+        @Query("Recursive") recursive: Boolean = true,
+        @Query("Fields") fields: String = MEDIA_ITEM_FIELDS,
+        @Query("StartIndex") startIndex: Int = 0,
+        @Query("Limit") limit: Int = 60,
+        @Query("SortBy") sortBy: String = "SortName",
+        @Query("SortOrder") sortOrder: String = "Ascending",
+        @Query("EnableUserData") enableUserData: Boolean = true,
+    ): EmbyItemsResponse
+
+    @GET("Playlists/{playlistId}/Items")
+    suspend fun getPlaylistItems(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("playlistId") playlistId: String,
+        @Query("UserId") userId: String,
+        @Query("Fields") fields: String = MEDIA_ITEM_FIELDS,
+        @Query("StartIndex") startIndex: Int = 0,
+        @Query("Limit") limit: Int = 60,
+    ): EmbyItemsResponse
+
     @GET("Shows/{seriesId}/Seasons")
     suspend fun getSeasons(
         @Header("X-Emby-Authorization") authorization: String,
@@ -129,9 +179,45 @@ interface EmbyApi {
         @Body request: EmbyPlaybackStoppedRequest,
     )
 
+    @POST("Users/{userId}/FavoriteItems/{itemId}")
+    suspend fun markFavorite(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("itemId") itemId: String,
+    )
+
+    @DELETE("Users/{userId}/FavoriteItems/{itemId}")
+    suspend fun unmarkFavorite(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("itemId") itemId: String,
+    )
+
+    @POST("Users/{userId}/PlayedItems/{itemId}")
+    suspend fun markPlayed(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("itemId") itemId: String,
+    )
+
+    @DELETE("Users/{userId}/PlayedItems/{itemId}")
+    suspend fun unmarkPlayed(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("itemId") itemId: String,
+    )
+
+    @POST("Users/{userId}/Items/{itemId}/UserData")
+    suspend fun updateUserData(
+        @Header("X-Emby-Authorization") authorization: String,
+        @Path("userId") userId: String,
+        @Path("itemId") itemId: String,
+        @Body request: EmbyUserDataUpdateRequest,
+    )
+
     companion object {
         const val MEDIA_ITEM_FIELDS =
-            "Overview,PrimaryImageAspectRatio,PrimaryImageTag,ImageTags,BackdropImageTags,ParentThumbItemId,ParentThumbImageTag,ParentBackdropItemId,ParentBackdropImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,SeasonName,IndexNumber,ParentIndexNumber,RecursiveItemCount,ChildCount"
+            "Overview,PrimaryImageAspectRatio,PrimaryImageTag,ImageTags,BackdropImageTags,ParentThumbItemId,ParentThumbImageTag,ParentBackdropItemId,ParentBackdropImageTags,UserData,RunTimeTicks,MediaSources,Genres,ProductionYear,CommunityRating,CriticRating,OfficialRating,DateCreated,PremiereDate,ParentId,SeriesId,SeriesName,SeriesPrimaryImageTag,SeasonName,IndexNumber,ParentIndexNumber,RecursiveItemCount,ChildCount,PlaylistItemId"
         const val MEDIA_DETAIL_FIELDS =
             "Overview,People,Genres,Studios,PrimaryImageAspectRatio,PrimaryImageTag,ImageTags,BackdropImageTags,UserData,RunTimeTicks,ProductionYear,CommunityRating,CriticRating,OfficialRating,PremiereDate,RecursiveItemCount,ChildCount"
         const val SEASON_FIELDS =

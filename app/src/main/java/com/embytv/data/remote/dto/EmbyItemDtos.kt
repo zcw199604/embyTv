@@ -46,6 +46,7 @@ data class EmbyItemDto(
     @SerializedName("OfficialRating") val officialRating: String? = null,
     @SerializedName("PremiereDate") val premiereDate: String? = null,
     @SerializedName("DateCreated") val dateCreated: String? = null,
+    @SerializedName("PlaylistItemId") val playlistItemId: String? = null,
 )
 
 data class EmbyStudioDto(
@@ -57,6 +58,14 @@ data class EmbyPersonDto(
     @SerializedName("Name") val name: String?,
     @SerializedName("Role") val role: String?,
     @SerializedName("Type") val type: String?,
+    @SerializedName("PrimaryImageTag") val primaryImageTag: String? = null,
+    @SerializedName("ImageTags") val imageTags: Map<String, String>? = null,
+)
+
+data class EmbyUserDataUpdateRequest(
+    @SerializedName("PlaybackPositionTicks") val playbackPositionTicks: Long? = null,
+    @SerializedName("Played") val played: Boolean? = null,
+    @SerializedName("IsFavorite") val isFavorite: Boolean? = null,
 )
 
 data class EmbyUserDataDto(

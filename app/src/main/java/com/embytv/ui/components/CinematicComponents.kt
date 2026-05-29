@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +63,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -71,10 +73,15 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import coil3.network.NetworkHeaders
+import coil3.network.httpHeaders
+import coil3.request.ImageRequest
 import com.embytv.ui.home.HomeNavigationItem
 import com.embytv.ui.home.LibrarySummaryUiModel
 import com.embytv.ui.home.MediaCardUiModel
 import com.embytv.ui.theme.CinematicGlassColors
+
+val LocalEmbyImageAuthorizationHeader = compositionLocalOf<String?> { null }
 
 @Composable
 fun GlassPanel(
@@ -165,8 +172,26 @@ fun NetworkBackdropImage(
     if (imageUrl.isNullOrBlank()) {
         ImagePlaceholder(modifier = modifier, compact = false)
     } else {
+        val context = LocalContext.current
+        val authorizationHeader = LocalEmbyImageAuthorizationHeader.current
+        val model = remember(imageUrl, authorizationHeader, context) {
+            if (authorizationHeader.isNullOrBlank()) {
+                imageUrl
+            } else {
+                ImageRequest.Builder(context)
+                    .data(imageUrl)
+                    .memoryCacheKey(imageUrl)
+                    .diskCacheKey(imageUrl)
+                    .httpHeaders(
+                        NetworkHeaders.Builder()
+                            .set("X-Emby-Authorization", authorizationHeader)
+                            .build(),
+                    )
+                    .build()
+            }
+        }
         AsyncImage(
-            model = imageUrl,
+            model = model,
             contentDescription = contentDescription,
             contentScale = ContentScale.Crop,
             modifier = modifier,
@@ -381,6 +406,7 @@ fun TopChromeBar(
     title: String,
     subtitle: String,
     onMenuClick: () -> Unit,
+    onSearchClick: () -> Unit = {},
     menuFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -404,7 +430,11 @@ fun TopChromeBar(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Search, contentDescription = null, tint = CinematicGlassColors.OnSurfaceVariant)
+            RoundIconButton(
+                icon = Icons.Filled.Search,
+                contentDescription = "搜索",
+                onClick = onSearchClick,
+            )
             Icon(Icons.Filled.Subtitles, contentDescription = null, tint = CinematicGlassColors.Primary)
             Icon(Icons.Filled.AccountCircle, contentDescription = null, tint = CinematicGlassColors.OnSurfaceVariant)
         }

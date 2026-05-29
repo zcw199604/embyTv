@@ -1,5 +1,6 @@
 package com.embytv.data.repository
 
+import com.embytv.BuildConfig
 import com.embytv.data.remote.EmbyApiProvider
 import com.embytv.data.remote.dto.EmbyAuthRequest
 import com.embytv.data.remote.dto.EmbyItemDto
@@ -8,6 +9,11 @@ import com.embytv.data.remote.dto.EmbyMediaStreamDto
 import com.embytv.data.remote.dto.EmbyPlaybackProgressRequest
 import com.embytv.data.remote.dto.EmbyPlaybackStartRequest
 import com.embytv.data.remote.dto.EmbyPlaybackStoppedRequest
+import com.embytv.data.remote.dto.EmbyUserDataUpdateRequest
+import com.embytv.domain.model.DiscoveryEntryItems
+import com.embytv.domain.model.DiscoveryEntrySummary
+import com.embytv.domain.model.DiscoveryKind
+import com.embytv.domain.model.EmbyDiscoveryContent
 import com.embytv.domain.model.EmbyCredentialStore
 import com.embytv.domain.model.EmbyFavoriteDashboard
 import com.embytv.domain.model.EmbyHomeDashboard
@@ -22,6 +28,7 @@ import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.NoOpEmbyCredentialStore
 import com.embytv.domain.model.PlaybackDetails
+import com.embytv.domain.model.PlaybackQueue
 import com.embytv.domain.model.PlaybackSource
 import com.embytv.domain.model.PlaybackTrack
 import com.embytv.domain.model.PlaybackVideoStream
@@ -43,6 +50,7 @@ class EmbyRepository(
     private val streamUrlBuilder: EmbyStreamUrlBuilder,
     private val credentialStore: EmbyCredentialStore = NoOpEmbyCredentialStore,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val clientVersion: String = BuildConfig.VERSION_NAME,
 ) {
     @OptIn(ExperimentalTime::class)
     suspend fun authenticate(config: ServerConfig): Result<EmbySession> = withContext(ioDispatcher) {
@@ -82,9 +90,20 @@ class EmbyRepository(
         runCatching { credentialStore.load() }
     }
 
+    suspend fun loadSavedCredentials(): Result<List<SavedEmbyCredential>> = withContext(ioDispatcher) {
+        runCatching { credentialStore.loadAll().credentials }
+    }
+
+    suspend fun deleteSavedCredential(uniqueKey: String): Result<Unit> = withContext(ioDispatcher) {
+        runCatching { credentialStore.delete(uniqueKey) }
+    }
+
     suspend fun clearSavedCredential(): Result<Unit> = withContext(ioDispatcher) {
         runCatching { credentialStore.clear() }
     }
+
+    fun buildImageAuthorizationHeader(session: EmbySession, deviceId: String): String =
+        buildAuthorizationHeader(deviceId, session.accessToken)
 
     suspend fun loadMediaItems(session: EmbySession, deviceId: String): Result<List<MediaItemSummary>> =
         withContext(ioDispatcher) {
@@ -154,6 +173,13 @@ class EmbyRepository(
                             userId = session.userId,
                         ).mapNotNull { it.toMediaItemSummary(session.serverUrl) }
                     }
+                    val nextUpDeferred = async {
+                        api.getNextUp(
+                            authorization = authorization,
+                            userId = session.userId,
+                            limit = NEXT_UP_LIMIT,
+                        ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                    }
                     val libraries = librariesDeferred.await()
                     val libraryLatestSectionsDeferred = libraries.map { library ->
                         async {
@@ -177,6 +203,7 @@ class EmbyRepository(
                         libraries = libraries,
                         resumeItems = resumeDeferred.await(),
                         latestItems = latestDeferred.await(),
+                        nextUpItems = nextUpDeferred.await(),
                         libraryLatestSections = libraryLatestSectionsDeferred.awaitAll().filterNotNull(),
                     )
                 }
@@ -185,6 +212,7 @@ class EmbyRepository(
                     libraries = dashboardParts.libraries,
                     resumeItems = dashboardParts.resumeItems,
                     latestItems = dashboardParts.latestItems,
+                    nextUpItems = dashboardParts.nextUpItems,
                     libraryLatestSections = dashboardParts.libraryLatestSections,
                 )
             }
@@ -238,6 +266,162 @@ class EmbyRepository(
                 )
             }
         }
+
+    suspend fun searchItems(
+        session: EmbySession,
+        deviceId: String,
+        query: String,
+        limit: Int = SEARCH_LIMIT,
+    ): Result<com.embytv.domain.model.EmbySearchResults> = withContext(ioDispatcher) {
+        runCatching {
+            val normalizedQuery = query.trim()
+            if (normalizedQuery.isBlank()) {
+                return@runCatching com.embytv.domain.model.EmbySearchResults(query = normalizedQuery)
+            }
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val items = api.getItems(
+                authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                userId = session.userId,
+                recursive = true,
+                includeItemTypes = "Movie,Series,Episode,BoxSet,Playlist",
+                fields = com.embytv.data.remote.EmbyApi.MEDIA_ITEM_FIELDS,
+                startIndex = 0,
+                limit = limit,
+                sortBy = "SortName",
+                sortOrder = "Ascending",
+                enableUserData = true,
+                searchTerm = normalizedQuery,
+            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+            com.embytv.domain.model.EmbySearchResults(query = normalizedQuery, items = items)
+        }
+    }
+
+    suspend fun loadDiscoveryContent(
+        session: EmbySession,
+        deviceId: String,
+        kind: DiscoveryKind,
+        limit: Int = DISCOVERY_LIMIT,
+    ): Result<EmbyDiscoveryContent> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val authorization = buildAuthorizationHeader(deviceId, session.accessToken)
+            val entries = when (kind) {
+                DiscoveryKind.Collections -> api.getItems(
+                    authorization = authorization,
+                    userId = session.userId,
+                    recursive = true,
+                    includeItemTypes = "BoxSet",
+                    fields = com.embytv.data.remote.EmbyApi.MEDIA_ITEM_FIELDS,
+                    startIndex = 0,
+                    limit = limit,
+                    sortBy = "SortName",
+                    sortOrder = "Ascending",
+                    enableUserData = true,
+                ).items.mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
+                DiscoveryKind.Playlists -> api.getItems(
+                    authorization = authorization,
+                    userId = session.userId,
+                    recursive = true,
+                    includeItemTypes = "Playlist",
+                    fields = com.embytv.data.remote.EmbyApi.MEDIA_ITEM_FIELDS,
+                    startIndex = 0,
+                    limit = limit,
+                    sortBy = "SortName",
+                    sortOrder = "Ascending",
+                    enableUserData = true,
+                ).items.mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
+                DiscoveryKind.Genres -> api.getGenres(
+                    authorization = authorization,
+                    userId = session.userId,
+                    limit = limit,
+                ).items.mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
+                DiscoveryKind.Persons -> api.getPersons(
+                    authorization = authorization,
+                    userId = session.userId,
+                    limit = limit,
+                ).items.mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
+            }
+            EmbyDiscoveryContent(kind = kind, entries = entries)
+        }
+    }
+
+    suspend fun loadDiscoveryEntryItems(
+        session: EmbySession,
+        deviceId: String,
+        entry: DiscoveryEntrySummary,
+        limit: Int = LIBRARY_CONTENT_LIMIT,
+    ): Result<DiscoveryEntryItems> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val authorization = buildAuthorizationHeader(deviceId, session.accessToken)
+            val items = when (entry.kind) {
+                DiscoveryKind.Collections -> api.getItemsByParent(
+                    authorization = authorization,
+                    userId = session.userId,
+                    parentId = entry.id,
+                    recursive = true,
+                    includeItemTypes = "Movie,Series",
+                    startIndex = 0,
+                    limit = limit,
+                    sortBy = "SortName",
+                    sortOrder = "Ascending",
+                    fields = com.embytv.data.remote.EmbyApi.MEDIA_ITEM_FIELDS,
+                ).items
+                DiscoveryKind.Playlists -> api.getPlaylistItems(
+                    authorization = authorization,
+                    playlistId = entry.id,
+                    userId = session.userId,
+                    limit = limit,
+                ).items
+                DiscoveryKind.Genres -> api.getItems(
+                    authorization = authorization,
+                    userId = session.userId,
+                    recursive = true,
+                    includeItemTypes = "Movie,Series",
+                    fields = com.embytv.data.remote.EmbyApi.MEDIA_ITEM_FIELDS,
+                    startIndex = 0,
+                    limit = limit,
+                    sortBy = "SortName",
+                    sortOrder = "Ascending",
+                    enableUserData = true,
+                    genreIds = entry.id,
+                ).items
+                DiscoveryKind.Persons -> api.getItems(
+                    authorization = authorization,
+                    userId = session.userId,
+                    recursive = true,
+                    includeItemTypes = "Movie,Series",
+                    fields = com.embytv.data.remote.EmbyApi.MEDIA_ITEM_FIELDS,
+                    startIndex = 0,
+                    limit = limit,
+                    sortBy = "SortName",
+                    sortOrder = "Ascending",
+                    enableUserData = true,
+                    personIds = entry.id,
+                ).items
+            }
+            DiscoveryEntryItems(
+                entry = entry,
+                items = items.mapNotNull { it.toMediaItemSummary(session.serverUrl) },
+            )
+        }
+    }
+
+    suspend fun loadNextUp(
+        session: EmbySession,
+        deviceId: String,
+        seriesId: String? = null,
+    ): Result<List<MediaItemSummary>> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            api.getNextUp(
+                authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                userId = session.userId,
+                seriesId = seriesId,
+                limit = NEXT_UP_LIMIT,
+            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+        }
+    }
 
     suspend fun loadMediaDetail(
         session: EmbySession,
@@ -306,7 +490,11 @@ class EmbyRepository(
         }
     }
 
-    fun createPlaybackSource(session: EmbySession, item: MediaItemSummary): PlaybackSource =
+    fun createPlaybackSource(
+        session: EmbySession,
+        item: MediaItemSummary,
+        queue: PlaybackQueue? = null,
+    ): PlaybackSource =
         PlaybackSource(
             itemId = item.id,
             title = item.name,
@@ -316,12 +504,14 @@ class EmbyRepository(
                 accessToken = session.accessToken,
             ),
             session = session,
+            queue = queue,
         )
 
     suspend fun createPlaybackSourceWithDetails(
         session: EmbySession,
         deviceId: String,
         item: MediaItemSummary,
+        queueItems: List<MediaItemSummary> = emptyList(),
     ): Result<PlaybackSource> = withContext(ioDispatcher) {
         runCatching {
             val api = apiFactory.create(session.serverUrl, session.accessToken)
@@ -331,7 +521,14 @@ class EmbyRepository(
                 userId = session.userId,
             )
             val source = playbackInfo.mediaSources.firstOrNull()
-            createPlaybackSource(session, item).copy(
+            val queue = PlaybackQueue.from(queueItems, item.id)
+                ?: loadPlaybackQueueItemsForItem(
+                    api = api,
+                    authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                    session = session,
+                    item = item,
+                )?.let { PlaybackQueue.from(it, item.id) }
+            createPlaybackSource(session, item, queue).copy(
                 deviceId = deviceId,
                 details = PlaybackDetails(
                     playSessionId = playbackInfo.playSessionId,
@@ -342,6 +539,56 @@ class EmbyRepository(
                     audioTracks = source?.audioStreams().orEmpty().map { it.toPlaybackTrack() },
                     subtitleTracks = source?.subtitleStreams().orEmpty().map { it.toPlaybackTrack() },
                 ),
+            )
+        }
+    }
+
+    suspend fun toggleFavorite(
+        session: EmbySession,
+        deviceId: String,
+        itemId: String,
+        favorite: Boolean,
+    ): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val authorization = buildAuthorizationHeader(deviceId, session.accessToken)
+            if (favorite) {
+                api.markFavorite(authorization = authorization, userId = session.userId, itemId = itemId)
+            } else {
+                api.unmarkFavorite(authorization = authorization, userId = session.userId, itemId = itemId)
+            }
+        }
+    }
+
+    suspend fun markPlayed(
+        session: EmbySession,
+        deviceId: String,
+        itemId: String,
+        played: Boolean,
+    ): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val authorization = buildAuthorizationHeader(deviceId, session.accessToken)
+            if (played) {
+                api.markPlayed(authorization = authorization, userId = session.userId, itemId = itemId)
+            } else {
+                api.unmarkPlayed(authorization = authorization, userId = session.userId, itemId = itemId)
+            }
+        }
+    }
+
+    suspend fun clearResumeProgress(
+        session: EmbySession,
+        deviceId: String,
+        itemId: String,
+    ): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            api.updateUserData(
+                authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                userId = session.userId,
+                itemId = itemId,
+                request = EmbyUserDataUpdateRequest(playbackPositionTicks = 0L),
             )
         }
     }
@@ -410,7 +657,7 @@ class EmbyRepository(
 
     private fun buildAuthorizationHeader(deviceId: String, accessToken: String? = null): String {
         return buildString {
-            append("MediaBrowser Client=\"EmbyTv\", Device=\"Android TV\", DeviceId=\"$deviceId\", Version=\"0.2.0\"")
+            append("MediaBrowser Client=\"EmbyTv\", Device=\"Android TV\", DeviceId=\"$deviceId\", Version=\"$clientVersion\"")
             if (!accessToken.isNullOrBlank()) {
                 append(", Token=\"")
                 append(accessToken)
@@ -443,6 +690,22 @@ class EmbyRepository(
             childCount = childCount,
             recursiveItemCount = recursiveItemCount,
             dateCreated = dateCreated,
+            isFavorite = userData?.isFavorite ?: false,
+            played = userData?.played ?: false,
+            playCount = userData?.playCount,
+            playlistItemId = playlistItemId,
+        )
+    }
+
+    private fun EmbyItemDto.toDiscoveryEntry(serverUrl: String, kind: DiscoveryKind): DiscoveryEntrySummary? {
+        val id = id ?: return null
+        return DiscoveryEntrySummary(
+            id = id,
+            name = name.orEmpty().ifBlank { id },
+            type = type.orEmpty(),
+            kind = kind,
+            imageUrl = primaryImageUrl(serverUrl) ?: thumbImageUrl(serverUrl) ?: backdropImageUrl(serverUrl),
+            itemCount = childCount ?: recursiveItemCount,
         )
     }
 
@@ -720,7 +983,30 @@ class EmbyRepository(
             isForced = isForced,
         )
 
+    private suspend fun loadPlaybackQueueItemsForItem(
+        api: com.embytv.data.remote.EmbyApi,
+        authorization: String,
+        session: EmbySession,
+        item: MediaItemSummary,
+    ): List<MediaItemSummary>? {
+        if (!item.type.equals("Episode", ignoreCase = true)) return null
+        val seriesId = item.seriesId?.takeIf { it.isNotBlank() } ?: return null
+        val seasonId = item.parentId?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            api.getEpisodes(
+                authorization = authorization,
+                seriesId = seriesId,
+                userId = session.userId,
+                seasonId = seasonId,
+                fields = com.embytv.data.remote.EmbyApi.SEASON_EPISODE_FIELDS,
+            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+        }.getOrNull()
+    }
+
     private companion object {
+        const val SEARCH_LIMIT = 60
+        const val DISCOVERY_LIMIT = 60
+        const val NEXT_UP_LIMIT = 12
         const val LIBRARY_LATEST_LIMIT = 8
         const val LIBRARY_CONTENT_LIMIT = 60
         const val FAVORITE_CONTENT_LIMIT = 60
@@ -732,6 +1018,7 @@ private data class DashboardParts(
     val libraries: List<EmbyLibrarySummary>,
     val resumeItems: List<MediaItemSummary>,
     val latestItems: List<MediaItemSummary>,
+    val nextUpItems: List<MediaItemSummary>,
     val libraryLatestSections: List<EmbyLibraryLatestSection>,
 )
 

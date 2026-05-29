@@ -14,6 +14,7 @@ import com.embytv.data.remote.dto.EmbyPlaybackStartRequest
 import com.embytv.data.remote.dto.EmbyPlaybackStoppedRequest
 import com.embytv.data.remote.dto.EmbyStudioDto
 import com.embytv.data.remote.dto.EmbyUserDataDto
+import com.embytv.data.remote.dto.EmbyUserDataUpdateRequest
 import com.embytv.data.remote.dto.EmbyViewsResponse
 import com.embytv.domain.model.EmbySeasonSummary
 import com.embytv.domain.model.EmbySession
@@ -235,6 +236,9 @@ private class MediaDetailFakeEmbyApi : EmbyApi {
         sortBy: String?,
         sortOrder: String?,
         enableUserData: Boolean,
+        searchTerm: String?,
+        genreIds: String?,
+        personIds: String?,
     ): EmbyItemsResponse = error("Not used")
 
     override suspend fun getItem(
@@ -284,6 +288,47 @@ private class MediaDetailFakeEmbyApi : EmbyApi {
         limit: Int,
     ): List<EmbyItemDto> = error("Not used")
 
+    override suspend fun getNextUp(
+        authorization: String,
+        userId: String,
+        fields: String,
+        limit: Int,
+        seriesId: String?,
+    ): EmbyItemsResponse = error("Not used")
+
+    override suspend fun getGenres(
+        authorization: String,
+        userId: String,
+        recursive: Boolean,
+        fields: String,
+        startIndex: Int,
+        limit: Int,
+        sortBy: String,
+        sortOrder: String,
+        enableUserData: Boolean,
+    ): EmbyItemsResponse = error("Not used")
+
+    override suspend fun getPersons(
+        authorization: String,
+        userId: String,
+        recursive: Boolean,
+        fields: String,
+        startIndex: Int,
+        limit: Int,
+        sortBy: String,
+        sortOrder: String,
+        enableUserData: Boolean,
+    ): EmbyItemsResponse = error("Not used")
+
+    override suspend fun getPlaylistItems(
+        authorization: String,
+        playlistId: String,
+        userId: String,
+        fields: String,
+        startIndex: Int,
+        limit: Int,
+    ): EmbyItemsResponse = error("Not used")
+
     override suspend fun getSeasons(
         authorization: String,
         seriesId: String,
@@ -331,4 +376,35 @@ private class MediaDetailFakeEmbyApi : EmbyApi {
     ) {
         error("Not used")
     }
+
+    override suspend fun markFavorite(
+        authorization: String,
+        userId: String,
+        itemId: String,
+    ) = error("Not used")
+
+    override suspend fun unmarkFavorite(
+        authorization: String,
+        userId: String,
+        itemId: String,
+    ) = error("Not used")
+
+    override suspend fun markPlayed(
+        authorization: String,
+        userId: String,
+        itemId: String,
+    ) = error("Not used")
+
+    override suspend fun unmarkPlayed(
+        authorization: String,
+        userId: String,
+        itemId: String,
+    ) = error("Not used")
+
+    override suspend fun updateUserData(
+        authorization: String,
+        userId: String,
+        itemId: String,
+        request: EmbyUserDataUpdateRequest,
+    ) = error("Not used")
 }

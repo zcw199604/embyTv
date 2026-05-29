@@ -4,9 +4,9 @@
 提供 Android TV Compose 页面、输入与播放导航。
 
 ## 模块概述
-- **职责:** Setup 页面负责 Emby 连接，Home 页面负责媒体中心、媒体详情、季/集浏览和播放入口，Player 页面负责 Media3、Compose OSD 与 AkDanmaku 的组合展示。
+- **职责:** Setup 页面负责 Emby 连接，Home 页面负责媒体中心、搜索、发现页、收藏、媒体详情、季/集浏览和播放入口，Player 页面负责 Media3、Compose OSD、音字幕切换、连续播放与 AkDanmaku 的组合展示。
 - **状态:** 🚧开发中
-- **最后更新:** 2026-05-28
+- **最后更新:** 2026-05-29
 
 ## 规范
 
@@ -33,6 +33,7 @@ Emby 登录成功后：
 - 保存 `serverUrl`、`userId`、`username`、`accessToken`、`serverId`、`deviceId` 和保存时间。
 - `username` 仅用于后续多服务器/多用户列表展示和身份区分。
 - 后续请求使用 `accessToken`，不保存密码。
+- 存在多个已保存身份时，启动后进入身份选择页，用户可用遥控器选择进入、删除某个身份或添加新服务器。
 
 ### 需求: Android TV 初始化
 **模块:** ui
@@ -72,6 +73,7 @@ Emby 登录成功后：
 - 剧集库最新资源如果 Emby 仍返回 Episode，Repository 会按 `SeriesId/SeriesName` 聚合为 Series 卡片。
 - Series 卡片在 `unplayedItemCount > 0` 时显示“剩 n 集”角标；Movie 不显示剩余集数角标。
 - 媒体卡片通过 Coil Compose 加载 `MediaItemSummary.imageUrl`、`thumbImageUrl` 或 `backdropImageUrl`，并支持 Emby 父级图片字段兜底。
+- Coil 图片请求通过 `LocalEmbyImageAuthorizationHeader` 注入当前 session 的 `X-Emby-Authorization`，认证服务器不需要将 token 暴露在图片 URL 中。
 - 首页不再展示本地硬编码 Movies、TV Shows、Anime 卡片、假进度或样例播放入口。
 
 #### 场景: 媒体库资源列表
@@ -106,6 +108,8 @@ Emby 登录成功后：
 - 点击媒体后先读取 `Items/{itemId}/PlaybackInfo`，`PlaybackSource.details` 携带真实媒体源和音视频/字幕流信息。
 - `PlayerView` 关闭默认控制器，由 Compose OSD 展示标题、真实容器/编码/画质信息、进度、快进/快退、播放/暂停、音轨/字幕/弹幕入口。
 - Audio/Subtitles 展示真实默认流或首个流标题；实际切换暂未实现时提供禁用原因。
+- Audio/Subtitles 根据 Media3 当前 tracks 打开可聚焦轨道列表，字幕面板额外提供“关闭字幕”。
+- `PlaybackSource.queue` 有上一集/下一集时，OSD 按钮可直接切换；自然播放结束后自动播放下一集。
 - OK/方向键唤起 OSD；Back 在 OSD 可见时先隐藏，再次 Back 退出播放页。
 - 弹幕开关和播放暂停状态同步到 AkDanmaku。
 - 播放开始、暂停/恢复、快退/快进、播放进度和退出播放页会通过 Emby Playback Check-ins 同步到服务器后台。
@@ -125,25 +129,48 @@ Emby 登录成功后：
 首页打开抽屉后：
 - 抽屉请求初始焦点并形成焦点组。
 - Back 或关闭按钮关闭抽屉，关闭后焦点返回菜单按钮。
-- 媒体库卡片和抽屉媒体库项可用 OK/Enter 进入媒体库列表页；未实现入口保留禁用态或明确提示。
+- 媒体库卡片和抽屉媒体库项可用 OK/Enter 进入媒体库列表页；搜索、收藏、合集、播放列表、类型、演员入口可通过遥控器进入对应页面。
+
+#### 场景: 搜索页
+搜索页打开后：
+- 搜索输入框获得初始焦点。
+- 输入关键词后延迟触发 Emby 搜索，结果卡片展示图片、名字、类型和进度/角标。
+- Movie/Series 进入详情，Episode 直接播放，暂不支持打开的类型显示提示。
+- Back 返回首页。
+
+#### 场景: 发现页
+用户从抽屉进入合集、播放列表、类型或演员页后：
+- 页面显示入口卡片、加载、空状态、错误状态和重试按钮。
+- OK/Enter 进入入口详情资源列表。
+- 资源列表复用媒体卡片交互：Movie/Series 进详情，Episode 可直接播放。
+- Back 在入口详情时返回入口列表，再次 Back 返回首页。
 
 #### 场景: 详情页遥控器路径
 详情页打开后：
 - Back 按层级处理：季内 Episode 列表返回季列表，详情页根层关闭详情。
 - Movie 详情的播放按钮、Series 的季卡片、Episode 卡片和错误重试按钮均可聚焦并响应 OK/Enter。
+- 详情页收藏/取消收藏、标记已播放/未播放和清除继续观看进度按钮可聚焦并响应 OK/Enter。
+- 清除继续观看进度属于危险操作，按 OK/Enter 后必须先显示确认弹窗；取消按钮默认获取焦点，Back 或取消不会调用 Emby 写接口。
 - 详情页缺失图片、人物或评分时显示兜底文案或省略对应字段，不出现空焦点操作。
+
+#### 场景: 凭证危险操作确认
+身份选择页中：
+- 删除保存身份属于危险操作，按删除后必须先显示确认弹窗。
+- 确认弹窗默认焦点在取消按钮；Back 或取消不删除凭证。
+- 确认后才调用凭证删除逻辑。
 
 #### 场景: 播放 OSD
 OSD 显示后：
 - 播放/暂停按钮获取初始焦点。
 - 快退、快进、播放/暂停、弹幕开关支持 OK/Enter。
-- 上一集、下一集、Audio、Subtitles 在真实功能未实现前显示禁用提示。
+- 上一集、下一集在 `PlaybackQueue` 有数据时切换剧集；无数据时显示“没有上一集/下一集”。
+- Audio 和 Subtitles 根据 Media3 当前 tracks 打开可聚焦轨道列表，字幕面板额外提供“关闭字幕”。
 
 ## API接口
 无外部 API。
 
 ## 数据模型
-使用 `HomeUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`EmbyFavoriteDashboard`、`EmbyMediaDetail`、`EmbySeasonSummary`、`EmbySeasonEpisodes`、`HomeDashboardUiModel`、`FavoriteContentUiState`、`MediaDetailUiState`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource` 和 `PlaybackDetails`。
+使用 `HomeUiState`、`SearchUiState`、`DiscoveryContentUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`EmbyFavoriteDashboard`、`EmbyMediaDetail`、`EmbySeasonSummary`、`EmbySeasonEpisodes`、`HomeDashboardUiModel`、`FavoriteContentUiState`、`MediaDetailUiState`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource`、`PlaybackDetails`、`PlaybackQueue` 和 `PlayerTrackOption`。
 
 ## 依赖
 - data
@@ -155,6 +182,8 @@ OSD 显示后：
 - NanoHTTPD
 
 ## 变更历史
+- [202605291035_emby_tv_feature_completion](../../history/2026-05/202605291035_emby_tv_feature_completion/) - 新增 TV 搜索页、发现页、详情页用户态动作、播放器音字幕面板和连续播放。
+- [202605291303_emby_review_issue_fixes](../../history/2026-05/202605291303_emby_review_issue_fixes/) - 修复审查发现的认证图片、搜索取消、危险操作确认、播放上报和版本号一致性问题。
 - [202605281948_performance_optimization](../../history/2026-05/202605281948_performance_optimization/) - 优化已保存 token 冷启动路径，避免先启动手机扫码同步服务。
 - [20260528_media_detail_rich_info](../../history/2026-05/20260528_media_detail_rich_info/) - 媒体详情页补齐媒体信息、演员信息和更明显的播放/季列表入口。
 - [202605281928_remote_ok_single_press_fix](../../history/2026-05/202605281928_remote_ok_single_press_fix/) - 在通用可聚焦面板统一处理 TV OK/Enter KeyUp，修复进入详情需按两次确认键的问题。

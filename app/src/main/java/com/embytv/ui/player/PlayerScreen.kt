@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,13 +58,20 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.Tracks
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import com.embytv.core.di.AppContainer
+import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.PlaybackSource
+import com.embytv.domain.model.PlayerTrackOption
+import com.embytv.domain.model.PlayerTrackType
 import com.embytv.ui.components.FocusableGlassSurface
 import com.embytv.ui.components.GlassPanel
 import com.embytv.ui.components.RemoteHint
@@ -79,6 +87,7 @@ fun PlayerScreen(
     container: AppContainer,
     playbackSource: PlaybackSource,
     onBack: () -> Unit,
+    onPlayNext: (MediaItemSummary) -> Unit = {},
 ) {
     val player = remember { container.playerFactory.createPlayer() }
     val danmakuPlayer = remember { container.danmakuBridge.createPlayer() }
@@ -89,6 +98,8 @@ fun PlayerScreen(
             reportPlaybackEvent(container, playbackSource, event)
         }
     }
+    val currentPlaybackSource by rememberUpdatedState(playbackSource)
+    val currentReportingCoordinator by rememberUpdatedState(reportingCoordinator)
     var osdState by remember { mutableStateOf(PlayerOsdState()) }
 
     fun dispatch(action: PlayerOsdAction) {
@@ -140,7 +151,7 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(player) {
+    LaunchedEffect(player, playbackSource) {
         while (true) {
             dispatch(
                 PlayerOsdAction.ProgressChanged(
@@ -148,7 +159,7 @@ fun PlayerScreen(
                     durationMs = player.duration.takeIf { it > 0L } ?: 0L,
                 ),
             )
-            reportingCoordinator.onProgressTick(
+            currentReportingCoordinator.onProgressTick(
                 positionMs = player.currentPosition,
                 isPaused = !player.isPlaying,
             )
@@ -156,14 +167,27 @@ fun PlayerScreen(
         }
     }
 
-    DisposableEffect(player, reportingCoordinator) {
+    DisposableEffect(player, playbackSource, reportingCoordinator) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
-                    reportingCoordinator.onStopped(
+                    currentReportingCoordinator.onStopped(
                         positionMs = player.duration.takeIf { it > 0L } ?: player.currentPosition,
                     )
+                    val next = currentPlaybackSource.queue?.next
+                    if (currentPlaybackSource.queue?.autoPlayNext == true && next != null) {
+                        onPlayNext(next)
+                    }
                 }
+            }
+
+            override fun onTracksChanged(tracks: Tracks) {
+                dispatch(
+                    PlayerOsdAction.TracksChanged(
+                        audioTracks = tracks.toTrackOptions(C.TRACK_TYPE_AUDIO),
+                        subtitleTracks = tracks.toTrackOptions(C.TRACK_TYPE_TEXT),
+                    ),
+                )
             }
         }
         player.addListener(listener)
@@ -178,7 +202,7 @@ fun PlayerScreen(
                 Lifecycle.Event.ON_RESUME -> {
                     if (osdState.isPlaying) {
                         player.play()
-                        reportingCoordinator.onPauseChanged(
+                        currentReportingCoordinator.onPauseChanged(
                             positionMs = player.currentPosition,
                             isPaused = false,
                         )
@@ -188,7 +212,7 @@ fun PlayerScreen(
                     }
                 }
                 Lifecycle.Event.ON_PAUSE -> {
-                    reportingCoordinator.onPauseChanged(
+                    currentReportingCoordinator.onPauseChanged(
                         positionMs = player.currentPosition,
                         isPaused = true,
                     )
@@ -201,7 +225,7 @@ fun PlayerScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            reportingCoordinator.onStopped(positionMs = player.currentPosition)
+            currentReportingCoordinator.onStopped(positionMs = player.currentPosition)
             player.release()
             danmakuPlayer.release()
         }
@@ -285,6 +309,40 @@ fun PlayerScreen(
                 reportingCoordinator.onSeek(positionMs = target, isPaused = !player.isPlaying)
                 dispatch(PlayerOsdAction.UserInteraction)
             },
+            onPrevious = {
+                playbackSource.queue?.previous?.let { previous ->
+                    reportingCoordinator.onStopped(positionMs = player.currentPosition)
+                    onPlayNext(previous)
+                }
+                    ?: dispatch(PlayerOsdAction.UnsupportedAction("没有上一集"))
+            },
+            onNext = {
+                playbackSource.queue?.next?.let { next ->
+                    reportingCoordinator.onStopped(positionMs = player.currentPosition)
+                    onPlayNext(next)
+                }
+                    ?: dispatch(PlayerOsdAction.UnsupportedAction("没有下一集"))
+            },
+            onSelectTrack = { option ->
+                if (option.type == PlayerTrackType.Subtitle) {
+                    player.trackSelectionParameters = player.trackSelectionParameters
+                        .buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        .build()
+                }
+                player.trackSelectionParameters = player.trackSelectionParameters
+                    .buildUpon()
+                    .setOverrideForType(TrackSelectionOverride(option.trackGroup, option.trackIndex))
+                    .build()
+                dispatch(PlayerOsdAction.UserInteraction)
+            },
+            onDisableSubtitles = {
+                player.trackSelectionParameters = player.trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .build()
+                dispatch(PlayerOsdAction.DisableSubtitles)
+            },
             onToggleDanmaku = { dispatch(PlayerOsdAction.ToggleDanmaku) },
             onQuickPanel = { dispatch(PlayerOsdAction.SelectQuickPanel(it)) },
             onUnsupported = { dispatch(PlayerOsdAction.UnsupportedAction(it)) },
@@ -340,6 +398,10 @@ private fun PlayerOsdOverlay(
     onPlayPause: () -> Unit,
     onReplay10: () -> Unit,
     onForward10: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSelectTrack: (PlayerTrackOption) -> Unit,
+    onDisableSubtitles: () -> Unit,
     onToggleDanmaku: () -> Unit,
     onQuickPanel: (PlayerQuickPanel?) -> Unit,
     onUnsupported: (String) -> Unit,
@@ -442,8 +504,8 @@ private fun PlayerOsdOverlay(
                     label = "Audio",
                     value = details.audioLabel,
                     selected = state.selectedQuickPanel == PlayerQuickPanel.Audio,
-                    enabled = false,
-                    disabledReason = if (details.audioTracks.isEmpty()) "没有可用音轨信息" else "音轨切换暂未支持",
+                    enabled = state.audioTracks.isNotEmpty(),
+                    disabledReason = if (state.audioTracks.isEmpty()) "没有可用音轨信息" else null,
                     onClick = { onQuickPanel(PlayerQuickPanel.Audio) },
                     onUnsupported = onUnsupported,
                 )
@@ -452,8 +514,8 @@ private fun PlayerOsdOverlay(
                     label = "Subtitles",
                     value = details.subtitleLabel,
                     selected = state.selectedQuickPanel == PlayerQuickPanel.Subtitles,
-                    enabled = false,
-                    disabledReason = if (details.subtitleTracks.isEmpty()) "当前媒体没有字幕" else "字幕切换暂未支持",
+                    enabled = state.subtitleTracks.isNotEmpty(),
+                    disabledReason = if (state.subtitleTracks.isEmpty()) "当前媒体没有字幕" else null,
                     onClick = { onQuickPanel(PlayerQuickPanel.Subtitles) },
                     onUnsupported = onUnsupported,
                 )
@@ -468,6 +530,11 @@ private fun PlayerOsdOverlay(
                     onUnsupported = onUnsupported,
                 )
             }
+            TrackQuickPanel(
+                state = state,
+                onSelectTrack = onSelectTrack,
+                onDisableSubtitles = onDisableSubtitles,
+            )
             ProgressRail(state = state)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -477,9 +544,9 @@ private fun PlayerOsdOverlay(
                 OsdIconButton(
                     icon = Icons.Filled.SkipPrevious,
                     label = "上一集",
-                    enabled = false,
-                    disabledReason = "上一集暂未支持",
-                    onClick = {},
+                    enabled = true,
+                    disabledReason = null,
+                    onClick = onPrevious,
                     onUnsupported = onUnsupported,
                 )
                 Spacer(modifier = Modifier.width(28.dp))
@@ -499,9 +566,9 @@ private fun PlayerOsdOverlay(
                 OsdIconButton(
                     icon = Icons.Filled.SkipNext,
                     label = "下一集",
-                    enabled = false,
-                    disabledReason = "下一集暂未支持",
-                    onClick = {},
+                    enabled = true,
+                    disabledReason = null,
+                    onClick = onNext,
                     onUnsupported = onUnsupported,
                 )
             }
@@ -511,6 +578,62 @@ private fun PlayerOsdOverlay(
             modifier = Modifier
                 .align(Alignment.Center)
                 .padding(top = 160.dp),
+        )
+    }
+}
+
+@Composable
+private fun TrackQuickPanel(
+    state: PlayerOsdState,
+    onSelectTrack: (PlayerTrackOption) -> Unit,
+    onDisableSubtitles: () -> Unit,
+) {
+    val tracks = when (state.selectedQuickPanel) {
+        PlayerQuickPanel.Audio -> state.audioTracks
+        PlayerQuickPanel.Subtitles -> state.subtitleTracks
+        else -> emptyList()
+    }
+    if (tracks.isEmpty() && state.selectedQuickPanel != PlayerQuickPanel.Subtitles) return
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (state.selectedQuickPanel == PlayerQuickPanel.Subtitles) {
+            QuickTrackButton(
+                label = "关闭字幕",
+                selected = state.subtitleDisabled,
+                onClick = onDisableSubtitles,
+            )
+        }
+        tracks.take(6).forEach { track ->
+            QuickTrackButton(
+                label = track.label,
+                selected = track.selected,
+                onClick = { onSelectTrack(track) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickTrackButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    FocusableGlassSurface(
+        cornerRadius = 999.dp,
+        onClick = onClick,
+    ) {
+        Text(
+            text = label,
+            color = if (selected) CinematicGlassColors.Primary else CinematicGlassColors.OnSurface,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
         )
     }
 }
@@ -624,3 +747,30 @@ private fun Long.toClockLabel(): String {
         "%02d:%02d".format(minutes, seconds)
     }
 }
+
+private fun Tracks.toTrackOptions(trackType: Int): List<PlayerTrackOption> =
+    groups
+        .mapIndexedNotNull { groupIndex, group ->
+            if (group.type != trackType || !group.isSupported) return@mapIndexedNotNull null
+            groupIndex to group
+        }
+        .flatMap { (groupIndex, group) ->
+            (0 until group.length).map { trackIndex ->
+                val format = group.getTrackFormat(trackIndex)
+                PlayerTrackOption(
+                    id = "$groupIndex:$trackIndex",
+                    label = format.label
+                        ?: format.language?.takeIf { it.isNotBlank() }
+                        ?: format.sampleMimeType?.substringAfterLast('/')
+                        ?: "Track ${trackIndex + 1}",
+                    type = if (trackType == C.TRACK_TYPE_AUDIO) {
+                        PlayerTrackType.Audio
+                    } else {
+                        PlayerTrackType.Subtitle
+                    },
+                    trackGroup = group.mediaTrackGroup,
+                    trackIndex = trackIndex,
+                    selected = group.isTrackSelected(trackIndex),
+                )
+            }
+        }

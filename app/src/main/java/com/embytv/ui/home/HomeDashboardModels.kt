@@ -1,15 +1,22 @@
 package com.embytv.ui.home
 
+import com.embytv.domain.model.DiscoveryEntryItems
+import com.embytv.domain.model.DiscoveryEntrySummary
+import com.embytv.domain.model.DiscoveryKind
+import com.embytv.domain.model.EmbyDiscoveryContent
 import com.embytv.domain.model.EmbyHomeDashboard
 import com.embytv.domain.model.EmbyFavoriteDashboard
 import com.embytv.domain.model.EmbyLibraryContent
 import com.embytv.domain.model.EmbyMediaDetail
 import com.embytv.domain.model.EmbySeasonEpisodes
 import com.embytv.domain.model.EmbySeasonSummary
+import com.embytv.domain.model.EmbySearchResults
 import com.embytv.domain.model.MediaItemSummary
 import java.util.Locale
 
 const val FAVORITES_NAVIGATION_ID = "favorites"
+const val SEARCH_NAVIGATION_ID = "search"
+private const val DISCOVERY_NAVIGATION_PREFIX = "discovery:"
 
 data class HomeNavigationItem(
     val id: String,
@@ -47,9 +54,105 @@ data class HomeDashboardUiModel(
     val navigationItems: List<HomeNavigationItem>,
     val libraries: List<LibrarySummaryUiModel>,
     val continueWatching: List<MediaCardUiModel>,
+    val nextUp: List<MediaCardUiModel>,
     val libraryLatestSections: List<MediaSectionUiModel>,
     val mediaSectionTitle: String,
 )
+
+data class SearchUiState(
+    val isOpen: Boolean = false,
+    val query: String = "",
+    val results: EmbySearchResults = EmbySearchResults(query = ""),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+) {
+    fun open(): SearchUiState = copy(isOpen = true, errorMessage = null)
+    fun close(): SearchUiState = SearchUiState()
+    fun loading(query: String): SearchUiState = copy(
+        isOpen = true,
+        query = query,
+        isLoading = true,
+        errorMessage = null,
+    )
+    fun loaded(results: EmbySearchResults): SearchUiState = copy(
+        isOpen = true,
+        query = results.query,
+        results = results,
+        isLoading = false,
+        errorMessage = null,
+    )
+    fun failed(query: String, message: String): SearchUiState = copy(
+        isOpen = true,
+        query = query,
+        isLoading = false,
+        errorMessage = message,
+    )
+}
+
+data class DiscoveryContentUiState(
+    val kind: DiscoveryKind? = null,
+    val content: EmbyDiscoveryContent? = null,
+    val selectedEntry: DiscoveryEntrySummary? = null,
+    val entryItems: DiscoveryEntryItems? = null,
+    val isLoading: Boolean = false,
+    val isEntryLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val entryErrorMessage: String? = null,
+) {
+    val isOpen: Boolean = kind != null || content != null
+    val isEntryOpen: Boolean = selectedEntry != null || entryItems != null || isEntryLoading
+
+    fun openLoading(kind: DiscoveryKind): DiscoveryContentUiState = DiscoveryContentUiState(
+        kind = kind,
+        isLoading = true,
+    )
+
+    fun loaded(content: EmbyDiscoveryContent): DiscoveryContentUiState = copy(
+        kind = content.kind,
+        content = content,
+        isLoading = false,
+        errorMessage = null,
+    )
+
+    fun failed(kind: DiscoveryKind, message: String): DiscoveryContentUiState = copy(
+        kind = kind,
+        isLoading = false,
+        errorMessage = message,
+    )
+
+    fun loadingEntry(entry: DiscoveryEntrySummary): DiscoveryContentUiState = copy(
+        selectedEntry = entry,
+        entryItems = null,
+        isEntryLoading = true,
+        entryErrorMessage = null,
+    )
+
+    fun entryLoaded(items: DiscoveryEntryItems): DiscoveryContentUiState = copy(
+        selectedEntry = items.entry,
+        entryItems = items,
+        isEntryLoading = false,
+        entryErrorMessage = null,
+    )
+
+    fun entryFailed(message: String): DiscoveryContentUiState = copy(
+        isEntryLoading = false,
+        entryErrorMessage = message,
+    )
+
+    fun back(): DiscoveryContentUiState =
+        if (isEntryOpen) {
+            copy(
+                selectedEntry = null,
+                entryItems = null,
+                isEntryLoading = false,
+                entryErrorMessage = null,
+            )
+        } else {
+            DiscoveryContentUiState()
+        }
+
+    fun close(): DiscoveryContentUiState = DiscoveryContentUiState()
+}
 
 enum class FavoriteCategory {
     Movie,
@@ -248,11 +351,20 @@ object HomeDashboardMapper {
         return HomeDashboardUiModel(
             navigationItems = listOf(
                 HomeNavigationItem(
+                    id = SEARCH_NAVIGATION_ID,
+                    title = "搜索",
+                    enabled = true,
+                ),
+                HomeNavigationItem(
                     id = FAVORITES_NAVIGATION_ID,
                     title = "收藏",
                     enabled = true,
                     disabledReason = null,
                 ),
+                discoveryNavigationItem(DiscoveryKind.Collections),
+                discoveryNavigationItem(DiscoveryKind.Playlists),
+                discoveryNavigationItem(DiscoveryKind.Genres),
+                discoveryNavigationItem(DiscoveryKind.Persons),
             ) + dashboard.libraries.map { library ->
                 HomeNavigationItem(
                     id = library.id,
@@ -274,6 +386,9 @@ object HomeDashboardMapper {
             continueWatching = mediaItems.take(12).map { item ->
                 item.toMediaCard()
             },
+            nextUp = dashboard.nextUpItems.take(12).map { item ->
+                item.toMediaCard()
+            },
             libraryLatestSections = dashboard.libraryLatestSections.mapNotNull { section ->
                 val items = section.items.take(12).map { it.toMediaCard() }
                 if (items.isEmpty()) {
@@ -289,6 +404,20 @@ object HomeDashboardMapper {
             mediaSectionTitle = if (dashboard.resumeItems.isNotEmpty()) "Continue Watching" else "最近入库",
         )
     }
+
+    fun navigationId(kind: DiscoveryKind): String = "$DISCOVERY_NAVIGATION_PREFIX${kind.name}"
+
+    fun discoveryKindFromNavigationId(id: String): DiscoveryKind? =
+        id.removePrefix(DISCOVERY_NAVIGATION_PREFIX)
+            .takeIf { it != id }
+            ?.let { value -> DiscoveryKind.entries.firstOrNull { it.name == value } }
+
+    private fun discoveryNavigationItem(kind: DiscoveryKind): HomeNavigationItem =
+        HomeNavigationItem(
+            id = navigationId(kind),
+            title = kind.titleLabel(),
+            enabled = true,
+        )
 
     private fun Int.toItemCountLabel(): String = if (this == 1) "1 item" else "$this items"
 
@@ -347,6 +476,37 @@ object HomeDashboardMapper {
         if (runtime <= 0L) return 0f
         return (playbackPositionTicks.toFloat() / runtime.toFloat()).coerceIn(0f, 1f)
     }
+}
+
+object SearchMapper {
+    fun map(results: EmbySearchResults): List<MediaCardUiModel> =
+        results.items.map { HomeDashboardMapper.mapMediaItem(it) }
+}
+
+object DiscoveryMapper {
+    fun title(kind: DiscoveryKind): String = kind.titleLabel()
+
+    fun entryCards(content: EmbyDiscoveryContent): List<MediaCardUiModel> =
+        content.entries.map { entry ->
+            MediaCardUiModel(
+                id = entry.id,
+                title = entry.name,
+                subtitle = entry.itemCount?.let { "$it 个资源" } ?: entry.kind.titleLabel(),
+                imageUrl = entry.imageUrl,
+                progressFraction = 0f,
+                badge = entry.type.ifBlank { entry.kind.titleLabel() },
+            )
+        }
+
+    fun itemCards(items: DiscoveryEntryItems): List<MediaCardUiModel> =
+        items.items.map { HomeDashboardMapper.mapMediaItem(it) }
+}
+
+fun DiscoveryKind.titleLabel(): String = when (this) {
+    DiscoveryKind.Collections -> "合集"
+    DiscoveryKind.Playlists -> "播放列表"
+    DiscoveryKind.Genres -> "类型"
+    DiscoveryKind.Persons -> "演员"
 }
 
 object HomeMediaDetailMapper {

@@ -4,9 +4,9 @@
 封装 Emby API、DTO、Repository、凭证存储、媒体详情聚合与播放地址构造。
 
 ## 模块概述
-- **职责:** Retrofit 接口定义、Emby 登录、首页 Dashboard 聚合、收藏聚合、媒体详情/季/集读取、播放详情读取、播放地址构造。
+- **职责:** Retrofit 接口定义、Emby 登录、首页 Dashboard 聚合、搜索、发现页、收藏聚合、用户态写操作、媒体详情/季/集读取、播放详情读取、播放队列和播放地址构造。
 - **状态:** 🚧开发中
-- **最后更新:** 2026-05-28
+- **最后更新:** 2026-05-29
 
 ## 规范
 
@@ -29,6 +29,7 @@ Emby 返回用户 ID 和访问令牌后：
 - 按媒体库调用 `Users/{userId}/Items/Latest?ParentId=...&Limit=8` 读取首页横排最新资源；tvshows 使用 `IncludeItemTypes=Episode&GroupItems=true` 并兜底聚合为 Series。
 - 媒体库数量统计、继续观看、最近入库和按库 latest 使用 Coroutines 受控并发加载，并发上限为 4，避免媒体库数量较多时完全串行阻塞首页。
 - 不在首页首屏全量拉取全部 Movie/Episode。
+- 小数量调用 `Shows/NextUp` 获取下一集候选；空结果不影响首页。
 
 #### 场景: Emby API 复用
 Repository 请求 Emby 时：
@@ -48,6 +49,33 @@ Repository 请求 Emby 时：
 - Series 直接进入电视剧收藏分组。
 - Episode 按 `SeriesId` 或 `SeriesName` 聚合为 Series，避免同一剧集重复卡片。
 - 聚合卡片保留图片 URL、剧集名字和 `UserData.UnplayedItemCount`；缺少名字时用条目 ID 兜底。
+
+#### 场景: 搜索资源
+用户输入搜索关键词后：
+- 空关键词不请求 Emby。
+- 调用 `Users/{userId}/Items?SearchTerm=...`，搜索 Movie、Series、Episode、BoxSet 和 Playlist。
+- 搜索结果以 `Items` 为准，不仅依赖 `TotalRecordCount`。
+- UI 层搜索 debounce 和网络请求处于同一个可取消 Job；旧关键词返回时会按当前 query 校验，不能覆盖新关键词状态。
+
+#### 场景: 发现页
+用户进入合集、播放列表、类型或演员页后：
+- 合集调用 `IncludeItemTypes=BoxSet`，详情用 `ParentId={boxSetId}`。
+- 播放列表调用 `IncludeItemTypes=Playlist`，详情用 `Playlists/{playlistId}/Items`。
+- 类型调用 `Genres`，详情用 `GenreIds={genreId}`。
+- 演员调用 `Persons`，详情用 `PersonIds={personId}`。
+- 所有入口字段按可空处理，图片复用既有 Emby 图片 URL 构造。
+
+#### 场景: 用户态写操作
+用户在详情页切换收藏、已播放或清除进度后：
+- Repository 调用 Emby Playstate/UserData 写接口。
+- 写接口只使用当前 session 的 `userId` 和 token。
+- 成功后由 ViewModel 刷新详情或 Dashboard；失败时 UI 保持原状态并提示。
+
+#### 场景: 多服务器/多用户凭证
+登录成功后：
+- 新凭证按 `serverUrl + userId` 去重写入加密凭证列表。
+- 读取凭证时兼容旧版单条字段，并迁移为列表 JSON。
+- `load()` 仍返回最近保存的一条凭证，保持旧启动链路兼容；`loadAll()` 提供多账号选择数据。
 
 #### 场景: 媒体详情聚合
 用户在 Movie 或 Series 卡片按 OK 后：
@@ -70,11 +98,13 @@ Repository 请求 Emby 时：
 - 当前条目缺图时使用 `ParentThumbItemId`、`ParentBackdropItemId`、`SeriesId` 与对应 image tag 构造父级图片 URL。
 - 只有 item id 而没有 tag 时允许使用 Emby 无 tag 图片端点兜底；仍缺图则由 UI 展示占位。
 - 图片 URL 按用途追加 `MaxWidth`、`MaxHeight` 和 `Quality`，首页 poster/thumb/backdrop 使用较小尺寸，详情图可使用更高尺寸，降低 TV 端网络与解码压力。
+- 图片认证不拼接 token 到 URL。Repository 提供当前 session 的 `X-Emby-Authorization`，UI 图片组件通过 Coil `ImageRequest.httpHeaders` 注入认证头。
 
 #### 场景: 播放详情
 选择媒体后：
 - 调用 `Items/{itemId}/PlaybackInfo?UserId=...` 读取真实媒体源、Video/Audio/Subtitle streams。
 - 生成 `PlaybackSource.details`，供播放器 OSD 展示容器、编码、画质、音轨和字幕状态。
+- 播放 Episode 时优先携带当前季/搜索/发现页队列；缺失时按 `seriesId + parentId` 按需拉取同季 Episode 补队列。
 
 #### 场景: 构造播放地址
 选择媒体后：
@@ -82,17 +112,24 @@ Repository 请求 Emby 时：
 - 对 itemId 和 token 进行 URL 编码。
 - 不在日志或错误文案中输出完整播放 URL。
 
+#### 场景: 客户端版本标识
+构造 `X-Emby-Authorization` 时：
+- `Version` 使用 Gradle `versionName` 生成的 `BuildConfig.VERSION_NAME`。
+- 测试可注入 `clientVersion` 验证请求头，不在生产代码中散落硬编码版本号。
+
 ## API接口
 见 [API 手册](../api.md)。
 
 ## 数据模型
-见 [数据模型](../data.md)。
+见 [数据模型](../data.md)。新增 `DiscoveryKind`、`DiscoveryEntrySummary`、`EmbyDiscoveryContent`、`DiscoveryEntryItems`、`EmbySearchResults`、`PlaybackQueue`、`PlayerTrackOption` 和 `SavedEmbyCredentialList`。
 
 ## 依赖
 - core.network
 - domain
 
 ## 变更历史
+- [202605291035_emby_tv_feature_completion](../../history/2026-05/202605291035_emby_tv_feature_completion/) - 新增搜索、发现页、用户态写操作、播放队列和多凭证列表。
+- [202605291303_emby_review_issue_fixes](../../history/2026-05/202605291303_emby_review_issue_fixes/) - 修复认证图片请求、搜索取消、危险操作确认、播放上报和版本号来源。
 - [202605281948_performance_optimization](../../history/2026-05/202605281948_performance_optimization/) - 优化首页 Dashboard 受控并发、Emby API service 复用和图片尺寸化。
 - [202605281300_media_detail_seasons](../../history/2026-05/202605281300_media_detail_seasons/) - 新增媒体详情、Series 季列表和季内 Episode 按需加载。
 - [202605281045_favorite_resources_by_type](../../history/2026-05/202605281045_favorite_resources_by_type/) - 新增收藏资源查询和电影/电视剧聚合模型。

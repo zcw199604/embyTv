@@ -4,6 +4,7 @@ import com.embytv.domain.model.EmbyHomeDashboard
 import com.embytv.domain.model.EmbyLibraryLatestSection
 import com.embytv.domain.model.EmbyLibrarySummary
 import com.embytv.domain.model.MediaItemSummary
+import com.embytv.domain.model.SavedEmbyCredential
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -222,5 +223,47 @@ class HomeDashboardMapperTest {
         assertEquals(null, closed.selectedLibraryId)
         assertFalse(closed.isLoading)
         assertEquals(null, closed.errorMessage)
+    }
+
+    @Test
+    fun confirmationStateCarriesDeleteCredentialWithoutPassword() {
+        val credential = SavedEmbyCredential(
+            serverUrl = "http://emby.test",
+            userId = "user-1",
+            username = "wm",
+            accessToken = "token-value",
+            serverId = "server-1",
+            deviceId = "device-1",
+            savedAtEpochMillis = 1L,
+        )
+
+        val state = HomeUiState(
+            confirmation = HomeConfirmationUiState(
+                kind = HomeConfirmationKind.DeleteCredential,
+                title = "删除保存身份",
+                message = "确认删除 wm",
+                confirmLabel = "确认删除",
+                credential = credential,
+            ),
+        )
+
+        assertEquals(HomeConfirmationKind.DeleteCredential, state.confirmation?.kind)
+        assertEquals("wm", state.confirmation?.credential?.username)
+        assertFalse(state.confirmation?.message.orEmpty().contains("token-value"))
+    }
+
+    @Test
+    fun searchStateIgnoresResultWhenCurrentQueryChanged() {
+        val loading = SearchUiState(isOpen = true, query = "ab").loading("a")
+        val current = loading.copy(query = "ab")
+        val staleQuery = "a"
+        val updated = if (current.query.trim() == staleQuery) {
+            current.loaded(com.embytv.domain.model.EmbySearchResults(query = staleQuery))
+        } else {
+            current
+        }
+
+        assertEquals("ab", updated.query)
+        assertTrue(updated.isLoading)
     }
 }

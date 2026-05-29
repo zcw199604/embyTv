@@ -5,17 +5,22 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.embytv.core.network.MobileSetupSyncServer
 import com.embytv.data.repository.EmbyRepository
+import com.embytv.domain.model.DiscoveryEntrySummary
+import com.embytv.domain.model.DiscoveryKind
 import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.EmbyLibrarySummary
 import com.embytv.domain.model.EmbySeasonSummary
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.PlaybackSource
+import com.embytv.domain.model.SavedEmbyCredential
 import com.embytv.domain.model.ServerConfigDraft
 import com.embytv.domain.model.ServerProtocol
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -24,6 +29,8 @@ class HomeViewModel(
     private val syncServer: MobileSetupSyncServer = MobileSetupSyncServer(),
 ) : ViewModel() {
     private var deviceId: String = UUID.randomUUID().toString()
+    private var searchJob: Job? = null
+    private var mobileSetupSyncJob: Job? = null
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
@@ -81,9 +88,104 @@ class HomeViewModel(
         }
     }
 
+    fun selectSavedCredential(credential: SavedEmbyCredential) {
+        deviceId = credential.deviceId
+        val session = EmbySession(
+            serverUrl = credential.serverUrl,
+            userId = credential.userId,
+            accessToken = credential.accessToken,
+            serverId = credential.serverId,
+        )
+        stopMobileSetupSync()
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    session = session,
+                    imageAuthorizationHeader = repository.buildImageAuthorizationHeader(session, deviceId),
+                    showCredentialPicker = false,
+                    confirmation = null,
+                    errorMessage = null,
+                )
+            }
+            loadDashboard(session).onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        session = null,
+                        imageAuthorizationHeader = null,
+                        showCredentialPicker = true,
+                        errorMessage = error.message ?: "登录凭证已失效，请重新选择或重新登录",
+                    )
+                }
+            }
+        }
+    }
+
+    fun deleteSavedCredential(credential: SavedEmbyCredential) {
+        _uiState.update {
+            it.copy(
+                confirmation = HomeConfirmationUiState(
+                    kind = HomeConfirmationKind.DeleteCredential,
+                    title = "删除保存身份",
+                    message = "确认删除 ${credential.username} 在 ${credential.serverUrl} 的登录身份？此操作不会删除 Emby 服务器账号。",
+                    confirmLabel = "确认删除",
+                    credential = credential,
+                ),
+                errorMessage = null,
+            )
+        }
+    }
+
+    fun clearConfirmation() {
+        _uiState.update { it.copy(confirmation = null) }
+    }
+
+    fun confirmPendingAction() {
+        val confirmation = _uiState.value.confirmation ?: return
+        when (confirmation.kind) {
+            HomeConfirmationKind.DeleteCredential -> {
+                val credential = confirmation.credential ?: return
+                deleteSavedCredentialConfirmed(credential)
+            }
+            HomeConfirmationKind.ClearResumeProgress -> {
+                val item = confirmation.item ?: return
+                clearResumeProgressConfirmed(item)
+            }
+        }
+    }
+
+    private fun deleteSavedCredentialConfirmed(credential: SavedEmbyCredential) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(confirmation = null) }
+            repository.deleteSavedCredential(credential.uniqueKey)
+                .onSuccess {
+                    restoreSavedCredential()
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(errorMessage = error.message ?: "删除凭证失败") }
+                }
+        }
+    }
+
+    fun startNewConnection() {
+        deviceId = UUID.randomUUID().toString()
+        _uiState.update {
+            it.copy(
+                showCredentialPicker = false,
+                session = null,
+                imageAuthorizationHeader = null,
+                confirmation = null,
+                errorMessage = null,
+            )
+        }
+        startMobileSetupSync()
+    }
+
     suspend fun createPlaybackSource(item: MediaItemSummary): PlaybackSource? {
         val session = _uiState.value.session ?: return null
-        return repository.createPlaybackSourceWithDetails(session, deviceId, item)
+        val queueItems = currentQueueItemsFor(item)
+        return repository.createPlaybackSourceWithDetails(session, deviceId, item, queueItems)
             .getOrElse { error ->
                 _uiState.update { it.copy(errorMessage = error.message ?: "播放信息加载失败") }
                 null
@@ -129,6 +231,85 @@ class HomeViewModel(
         loadFavorites(session)
     }
 
+    fun openSearch() {
+        _uiState.update {
+            it.copy(
+                search = it.search.open(),
+                libraryContent = it.libraryContent.close(),
+                favoriteContent = it.favoriteContent.close(),
+                discoveryContent = it.discoveryContent.close(),
+                mediaDetail = it.mediaDetail.close(),
+                errorMessage = null,
+            )
+        }
+    }
+
+    fun closeSearch() {
+        searchJob?.cancel()
+        _uiState.update { it.copy(search = it.search.close(), errorMessage = null) }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.update { it.copy(search = it.search.copy(query = query, errorMessage = null)) }
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            delay(350)
+            runSearchNow(query)
+        }
+    }
+
+    fun retrySearch() {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            runSearchNow(_uiState.value.search.query)
+        }
+    }
+
+    fun clearSearch() {
+        searchJob?.cancel()
+        _uiState.update { it.copy(search = SearchUiState(isOpen = true)) }
+    }
+
+    fun openDiscovery(kind: DiscoveryKind) {
+        val session = _uiState.value.session ?: return
+        loadDiscoveryContent(session, kind)
+    }
+
+    fun closeDiscovery() {
+        _uiState.update { it.copy(discoveryContent = it.discoveryContent.close(), errorMessage = null) }
+    }
+
+    fun backFromDiscovery() {
+        _uiState.update { it.copy(discoveryContent = it.discoveryContent.back(), errorMessage = null) }
+    }
+
+    fun retryDiscovery() {
+        val state = _uiState.value.discoveryContent
+        val session = _uiState.value.session ?: return
+        val kind = state.kind ?: return
+        loadDiscoveryContent(session, kind)
+    }
+
+    fun openDiscoveryEntry(entry: DiscoveryEntrySummary) {
+        val session = _uiState.value.session ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(discoveryContent = it.discoveryContent.loadingEntry(entry)) }
+            repository.loadDiscoveryEntryItems(session, deviceId, entry)
+                .onSuccess { items ->
+                    _uiState.update { it.copy(discoveryContent = it.discoveryContent.entryLoaded(items)) }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(discoveryContent = it.discoveryContent.entryFailed(error.message ?: "发现内容加载失败"))
+                    }
+                }
+        }
+    }
+
+    fun retryDiscoveryEntry() {
+        _uiState.value.discoveryContent.selectedEntry?.let(::openDiscoveryEntry)
+    }
+
     fun openMediaDetail(item: MediaItemSummary) {
         val session = _uiState.value.session ?: return
         viewModelScope.launch {
@@ -148,6 +329,64 @@ class HomeViewModel(
                     _uiState.update {
                         it.copy(mediaDetail = it.mediaDetail.failed(error.message ?: "媒体详情加载失败"))
                     }
+                }
+        }
+    }
+
+    fun toggleFavorite(item: MediaItemSummary) {
+        val session = _uiState.value.session ?: return
+        viewModelScope.launch {
+            repository.toggleFavorite(session, deviceId, item.id, favorite = !item.isFavorite)
+                .onSuccess {
+                    refreshMediaDetailIfOpen()
+                    refreshDashboard(session)
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(errorMessage = error.message ?: "收藏状态更新失败") }
+                }
+        }
+    }
+
+    fun togglePlayed(item: MediaItemSummary) {
+        val session = _uiState.value.session ?: return
+        viewModelScope.launch {
+            repository.markPlayed(session, deviceId, item.id, played = !item.played)
+                .onSuccess {
+                    refreshMediaDetailIfOpen()
+                    refreshDashboard(session)
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(errorMessage = error.message ?: "播放状态更新失败") }
+                }
+        }
+    }
+
+    fun clearResumeProgress(item: MediaItemSummary) {
+        _uiState.update {
+            it.copy(
+                confirmation = HomeConfirmationUiState(
+                    kind = HomeConfirmationKind.ClearResumeProgress,
+                    title = "清除播放进度",
+                    message = "确认清除《${item.name.ifBlank { item.seriesName ?: item.id }}》的继续观看进度？",
+                    confirmLabel = "确认清除",
+                    item = item,
+                ),
+                errorMessage = null,
+            )
+        }
+    }
+
+    private fun clearResumeProgressConfirmed(item: MediaItemSummary) {
+        val session = _uiState.value.session ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(confirmation = null) }
+            repository.clearResumeProgress(session, deviceId, item.id)
+                .onSuccess {
+                    refreshMediaDetailIfOpen()
+                    refreshDashboard(session)
+                }
+                .onFailure { error ->
+                    _uiState.update { it.copy(errorMessage = error.message ?: "继续观看进度清除失败") }
                 }
         }
     }
@@ -188,6 +427,8 @@ class HomeViewModel(
     }
 
     override fun onCleared() {
+        searchJob?.cancel()
+        mobileSetupSyncJob?.cancel()
         syncServer.stop()
         super.onCleared()
     }
@@ -209,7 +450,8 @@ class HomeViewModel(
                         ),
                     )
                 }
-                viewModelScope.launch {
+                mobileSetupSyncJob?.cancel()
+                mobileSetupSyncJob = viewModelScope.launch {
                     syncServer.payloads.collect { draft ->
                         _uiState.update {
                             it.copy(
@@ -234,6 +476,8 @@ class HomeViewModel(
     }
 
     private fun stopMobileSetupSync() {
+        mobileSetupSyncJob?.cancel()
+        mobileSetupSyncJob = null
         syncServer.stop()
         _uiState.update {
             it.copy(mobileSetupSync = it.mobileSetupSync.copy(isRunning = false, qrUrl = null))
@@ -242,12 +486,27 @@ class HomeViewModel(
 
     private fun restoreSavedCredential() {
         viewModelScope.launch {
-            repository.loadSavedCredential()
-                .onSuccess { credential ->
-                    if (credential == null) {
+            repository.loadSavedCredentials()
+                .onSuccess { credentials ->
+                    _uiState.update { it.copy(savedCredentials = credentials, confirmation = null) }
+                    if (credentials.isEmpty()) {
                         startMobileSetupSync()
                         return@onSuccess
                     }
+                    if (credentials.size > 1) {
+                        stopMobileSetupSync()
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                session = null,
+                                imageAuthorizationHeader = null,
+                                showCredentialPicker = true,
+                                errorMessage = null,
+                            )
+                        }
+                        return@onSuccess
+                    }
+                    val credential = credentials.single()
                     deviceId = credential.deviceId
                     val session = EmbySession(
                         serverUrl = credential.serverUrl,
@@ -256,7 +515,14 @@ class HomeViewModel(
                         serverId = credential.serverId,
                     )
                     stopMobileSetupSync()
-                    _uiState.update { it.copy(isLoading = true, session = session, errorMessage = null) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = true,
+                            session = session,
+                            imageAuthorizationHeader = repository.buildImageAuthorizationHeader(session, deviceId),
+                            errorMessage = null,
+                        )
+                    }
                     loadDashboard(session).onFailure { error ->
                         repository.clearSavedCredential()
                         deviceId = UUID.randomUUID().toString()
@@ -265,6 +531,7 @@ class HomeViewModel(
                             it.copy(
                                 isLoading = false,
                                 session = null,
+                                imageAuthorizationHeader = null,
                                 errorMessage = error.message ?: "登录凭证已失效，请重新登录",
                             )
                         }
@@ -283,9 +550,12 @@ class HomeViewModel(
                     it.copy(
                         isLoading = false,
                         session = session,
+                        imageAuthorizationHeader = repository.buildImageAuthorizationHeader(session, deviceId),
                         dashboard = dashboard,
                         libraryContent = it.libraryContent.close(),
                         favoriteContent = it.favoriteContent.close(),
+                        search = it.search.close(),
+                        discoveryContent = it.discoveryContent.close(),
                         mediaDetail = it.mediaDetail.close(),
                     )
                 }
@@ -312,6 +582,10 @@ class HomeViewModel(
                         isLoading = true,
                         errorMessage = null,
                     ),
+                    favoriteContent = it.favoriteContent.close(),
+                    search = it.search.close(),
+                    discoveryContent = it.discoveryContent.close(),
+                    mediaDetail = it.mediaDetail.close(),
                     errorMessage = null,
                 )
             }
@@ -349,6 +623,8 @@ class HomeViewModel(
                 it.copy(
                     favoriteContent = it.favoriteContent.openLoading(),
                     libraryContent = it.libraryContent.close(),
+                    search = it.search.close(),
+                    discoveryContent = it.discoveryContent.close(),
                     mediaDetail = it.mediaDetail.close(),
                     errorMessage = null,
                 )
@@ -368,6 +644,84 @@ class HomeViewModel(
                         )
                     }
                 }
+        }
+    }
+
+    private suspend fun runSearchNow(query: String) {
+        val session = _uiState.value.session ?: return
+        val normalized = query.trim()
+        if (normalized.isBlank()) {
+            _uiState.update { it.copy(search = SearchUiState(isOpen = true)) }
+            return
+        }
+        _uiState.update { it.copy(search = it.search.loading(normalized)) }
+        repository.searchItems(session, deviceId, normalized)
+            .onSuccess { results ->
+                _uiState.update { current ->
+                    if (current.search.query.trim() == normalized) {
+                        current.copy(search = current.search.loaded(results))
+                    } else {
+                        current
+                    }
+                }
+            }
+            .onFailure { error ->
+                _uiState.update { current ->
+                    if (current.search.query.trim() == normalized) {
+                        current.copy(search = current.search.failed(normalized, error.message ?: "搜索失败"))
+                    } else {
+                        current
+                    }
+                }
+            }
+    }
+
+    private fun loadDiscoveryContent(session: EmbySession, kind: DiscoveryKind) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    discoveryContent = it.discoveryContent.openLoading(kind),
+                    libraryContent = it.libraryContent.close(),
+                    favoriteContent = it.favoriteContent.close(),
+                    search = it.search.close(),
+                    mediaDetail = it.mediaDetail.close(),
+                    errorMessage = null,
+                )
+            }
+            repository.loadDiscoveryContent(session, deviceId, kind)
+                .onSuccess { content ->
+                    _uiState.update { it.copy(discoveryContent = it.discoveryContent.loaded(content)) }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(discoveryContent = it.discoveryContent.failed(kind, error.message ?: "发现页加载失败"))
+                    }
+                }
+        }
+    }
+
+    private suspend fun refreshDashboard(session: EmbySession) {
+        repository.loadHomeDashboard(session, deviceId)
+            .onSuccess { dashboard ->
+                _uiState.update { it.copy(dashboard = dashboard) }
+            }
+    }
+
+    private fun refreshMediaDetailIfOpen() {
+        val item = _uiState.value.mediaDetail.requestedItem ?: return
+        openMediaDetail(item)
+    }
+
+    private fun currentQueueItemsFor(item: MediaItemSummary): List<MediaItemSummary> {
+        val state = _uiState.value
+        return when {
+            state.mediaDetail.seasonEpisodes?.episodes?.any { it.id == item.id } == true ->
+                state.mediaDetail.seasonEpisodes.episodes
+            state.discoveryContent.entryItems?.items?.any { it.id == item.id } == true ->
+                state.discoveryContent.entryItems.items
+            state.search.results.items.any { it.id == item.id } ->
+                state.search.results.items
+            else -> emptyList()
         }
     }
 

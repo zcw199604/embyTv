@@ -1,11 +1,12 @@
 # API 手册
 
 ## 概述
-当前客户端通过 Emby HTTP API 完成认证、首页 Dashboard 聚合和播放详情读取。请求头使用 `X-Emby-Authorization` 标识客户端和设备；普通 API 通过请求头携带 token，视频流地址通过 `api_key` 查询参数兼容 Emby 播放接口。
+当前客户端通过 Emby HTTP API 完成认证、首页 Dashboard 聚合、搜索、发现页、媒体详情和播放详情读取。请求头使用 `X-Emby-Authorization` 标识客户端、设备和版本；普通 API 与图片请求通过请求头携带 token，视频流地址通过 `api_key` 查询参数兼容 Emby 播放接口。
 
 ## 认证方式
 - 登录接口返回 `AccessToken`。
-- 后续请求使用 `X-Emby-Authorization` 的 `Token` 字段，并通过 `api_key` 查询参数兼容 Emby 流媒体接口。
+- 后续 API 与 Coil 图片请求使用 `X-Emby-Authorization` 的 `Token` 字段，并通过 `api_key` 查询参数兼容 Emby 流媒体接口。
+- `X-Emby-Authorization` 中 `Version` 来自 Gradle `versionName`，避免 UI 版本和 Emby 后台会话版本不一致。
 
 ---
 
@@ -35,6 +36,20 @@
 ```
 
 ### 媒体列表
+
+#### GET Users/{userId}/Items?SearchTerm={query}
+**描述:** 搜索当前用户可见资源，用于 TV 搜索页。
+
+**请求参数:**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| SearchTerm | string | 是 | 搜索关键词，空关键词不发请求 |
+| Recursive | boolean | 是 | true |
+| IncludeItemTypes | string | 是 | Movie,Series,Episode,BoxSet,Playlist |
+| Fields | string | 是 | 包含图片、剧集、用户态和播放列表字段 |
+| Limit | int | 是 | 当前 60 |
+
+**注意:** 测试服搜索场景出现过 `TotalRecordCount=0` 但 `Items` 有数据，UI 以 `Items` 是否为空判断结果。
 
 #### GET Users/{userId}/Items
 **描述:** 递归获取媒体条目。当前不再作为首页首屏数据源，保留为兼容接口；首页改用 `Views`、`Resume`、`Latest` 和按库统计，避免启动时全量拉取大媒体库。收藏页使用同一接口的收藏过滤能力。
@@ -196,14 +211,61 @@
 | Thumb | `ImageTags.Thumb` | 继续观看和最新资源缩略图优先来源 |
 | Backdrop | `BackdropImageTags[0]` | 缩略图缺失时的背景图兜底 |
 
-**落地实现:** 图片兜底顺序覆盖 `ImageTags.Primary`、`PrimaryImageTag`、`ImageTags.Thumb`、`BackdropImageTags[0]`、`ParentThumbItemId + ParentThumbImageTag`、`ParentBackdropItemId + ParentBackdropImageTags[0]`、`SeriesId + SeriesPrimaryImageTag`。当只有 item id 而没有 tag 时，允许构造 `/Items/{itemId}/Images/{type}` 或 `/Items/{itemId}/Images/Backdrop/0` 作为 Emby 图片端点兜底；仍缺失时显示本地占位。
+**落地实现:** 图片兜底顺序覆盖 `ImageTags.Primary`、`PrimaryImageTag`、`ImageTags.Thumb`、`BackdropImageTags[0]`、`ParentThumbItemId + ParentThumbImageTag`、`ParentBackdropItemId + ParentBackdropImageTags[0]`、`SeriesId + SeriesPrimaryImageTag`。当只有 item id 而没有 tag 时，允许构造 `/Items/{itemId}/Images/{type}` 或 `/Items/{itemId}/Images/Backdrop/0` 作为 Emby 图片端点兜底；仍缺失时显示本地占位。UI 通过 `LocalEmbyImageAuthorizationHeader` 将当前 session 的 `X-Emby-Authorization` 注入 Coil `ImageRequest`，不把 token 拼入图片 URL。
 
 ### 剧集下一集
 
 #### GET Shows/NextUp
-**描述:** 获取剧集下一集候选，可作为剧集首页模块。当前不作为主闭环依赖。
+**描述:** 获取剧集下一集候选，用于首页 Next Up 区块和剧集播放队列兜底。
 
 **真实接口探测:** 2026-05-27 使用测试服务器请求成功，但当前返回 `TotalRecordCount=0`。
+
+**落地实现:** 首页 Dashboard 小数量请求该接口，空结果不影响首页加载。
+
+### 发现页
+
+#### GET Users/{userId}/Items?IncludeItemTypes=BoxSet
+**描述:** 获取合集列表。抽屉“合集”入口调用该接口；测试服当前无 BoxSet 数据，UI 展示空状态。
+
+#### GET Users/{userId}/Items?ParentId={boxSetId}
+**描述:** 获取合集内 Movie/Series 资源。
+
+#### GET Users/{userId}/Items?IncludeItemTypes=Playlist
+**描述:** 获取播放列表入口。
+
+#### GET Playlists/{playlistId}/Items
+**描述:** 获取播放列表条目。当前只读展示，不支持编辑播放列表。
+
+#### GET Genres
+**描述:** 获取类型列表。2026-05-29 测试服返回 47 条 Genre，包含 `Id`、`Name`、`Type=Genre` 和 Primary 图片。
+
+#### GET Users/{userId}/Items?GenreIds={genreId}
+**描述:** 获取指定类型下 Movie/Series 资源。
+
+#### GET Persons
+**描述:** 获取演员/人物列表。2026-05-29 测试服返回 53881 条 Person，包含 `Id`、`Name`、`Type=Person` 和 Primary 图片。
+
+#### GET Users/{userId}/Items?PersonIds={personId}
+**描述:** 获取指定演员关联的 Movie/Series 资源。
+
+### 用户态写操作
+
+#### POST Users/{userId}/FavoriteItems/{itemId}
+**描述:** 收藏资源。
+
+#### DELETE Users/{userId}/FavoriteItems/{itemId}
+**描述:** 取消收藏资源。
+
+#### POST Users/{userId}/PlayedItems/{itemId}
+**描述:** 标记已播放。
+
+#### DELETE Users/{userId}/PlayedItems/{itemId}
+**描述:** 标记未播放。
+
+#### POST Users/{userId}/Items/{itemId}/UserData
+**描述:** 更新用户态数据。当前用于将 `PlaybackPositionTicks` 置 0，清除继续观看进度。
+
+**安全约束:** 所有写操作只使用当前 session 的 `userId` 和 token，不在日志或错误文案中输出敏感信息。
 
 ### 播放信息
 
@@ -263,7 +325,7 @@ Emby 官方将播放状态同步称为 Playback Check-ins。当前客户端使�
 | PlaySessionId | string | 否 | 播放会话 ID |
 | PositionTicks | long | 是 | 停止时播放位置 ticks |
 
-**落地实现:** `PlayerScreen` 通过 `PlaybackReportingCoordinator` 控制 Playing/Progress/Stopped 去重和节流；进度默认 10 秒上报一次，暂停、恢复、快退、快进和停止为强制上报。
+**落地实现:** `PlayerScreen` 通过 `PlaybackReportingCoordinator` 控制 Playing/Progress/Stopped 去重和节流；进度默认 10 秒上报一次，暂停、恢复、快退、快进和停止为强制上报。上一集/下一集手动切换前会先对当前媒体发送 stopped；进度轮询跟随当前 `PlaybackSource`，避免切集后继续上报旧 itemId。
 
 ### 播放流
 
