@@ -11,17 +11,20 @@ flowchart TD
     Home --> Search["Search / Discovery UI State"]
     Home --> ImageAuth["LocalEmbyImageAuthorizationHeader"]
     Home --> SearchHistory["SearchHistoryStore"]
+    Home --> ThemeStore["ThemePreferenceStore"]
     Sync --> Phone["手机浏览器配置页"]
     Home --> Store["EncryptedEmbyCredentialStore"]
     Repo --> Api["Retrofit EmbyApi"]
     Repo --> Url["EmbyStreamUrlBuilder"]
     ImageAuth --> Coil["Coil ImageRequest"]
     SearchHistory --> DataStore["DataStore Preferences"]
+    ThemeStore --> DataStore
     Repo --> StoreList["SavedEmbyCredentialList"]
     Player --> Media3["Media3PlayerFactory / ExoPlayer"]
     Player --> Danmaku["AkDanmakuBridge / DanmakuPlayer"]
     Core["DefaultAppContainer"] --> Repo
     Core --> SearchHistory
+    Core --> ThemeStore
     Core --> Media3
     Core --> Danmaku
 ```
@@ -74,3 +77,4 @@ sequenceDiagram
 | ADR-202605291303 | 图片认证优先使用请求 Header | 2026-05-29 | ✅已采纳 | ui/components, data/repository | [how.md](../history/2026-05/202605291303_emby_review_issue_fixes/how.md#adr-202605291303-图片认证优先使用请求-header) |
 | ADR-202605291304 | 播放切集上报由当前播放源驱动 | 2026-05-29 | ✅已采纳 | ui/player, data/repository | [how.md](../history/2026-05/202605291303_emby_review_issue_fixes/how.md#adr-202605291304-播放切集上报由当前播放源驱动) |
 | ADR-202605291529 | 搜索历史使用 DataStore Preferences 持久化 | 2026-05-29 | ✅已采纳 | data/local, ui/home | [how.md](../history/2026-05/202605291529_ui_interaction_optimization_phase2/how.md) |
+| ADR-202605291553 | 主题系统采用兼容式颜色入口渐进迁移 | 2026-05-29 | ✅已采纳 | ui/theme, data/local, ui/home | [how.md](../history/2026-05/202605291553_ui_interaction_optimization_phase3/how.md) |

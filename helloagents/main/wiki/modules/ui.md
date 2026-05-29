@@ -58,6 +58,7 @@ Emby 登录成功后：
 #### 场景: 通用视觉反馈
 页面和卡片复用 Cinematic Glass 组件时：
 - `GlassPanel` 在焦点态使用 200ms 动画，将边框从 1dp 过渡到 3dp，并显示 Emby Green 到强调黄的渐变边框和 8dp 阴影。
+- `CinematicGlassColors` 从 `EmbyTvTheme` 的当前主题读取颜色，保持既有组件 API 不变。
 - 网络图片通过 Coil `ImageRequest` 加载，统一保留 `X-Emby-Authorization` Header、内存/磁盘 cache key、300ms crossfade、加载占位和失败占位。
 - 图片缺失、加载中或加载失败时必须保持稳定占位，不允许出现白屏闪烁。
 - 加载失败和空数据场景优先使用 `ErrorStatePanel` / `EmptyStatePanel` 展示图标、标题、说明和可选重试按钮。
@@ -99,6 +100,14 @@ Emby 登录成功后：
 - 媒体库、搜索、收藏、发现和发现入口资源列表加载时显示与实际卡片网格接近的骨架布局。
 - 媒体详情页加载时显示详情页骨架，季内 Episode 加载时显示列表骨架。
 - 骨架屏使用 `Modifier.shimmerEffect()` 的 1.2 秒循环渐变动画，颜色遵循 Cinematic Glass 深色主题。
+
+#### 场景: 显示与辅助设置
+用户从抽屉进入设置后：
+- 页面展示主题、高对比度和字体大小设置项。
+- 主题支持 Cinematic Glass、Dark Minimal 和 Emby Classic。
+- 高对比度开启后覆盖当前主题颜色，使用黑底、白字和高亮绿色主色。
+- 字体大小偏好支持 Small、Normal、Large、ExtraLarge 四档，并持久化到 DataStore。
+- Back 或顶部返回按钮返回首页。
 
 #### 场景: 媒体详情页
 用户在首页、媒体库列表或收藏页对 Movie/Series 按 OK/Enter 后：
@@ -185,12 +194,13 @@ OSD 显示后：
 - 快退、快进、播放/暂停、弹幕开关支持 OK/Enter。
 - 上一集、下一集在 `PlaybackQueue` 有数据时切换剧集；无数据时显示“没有上一集/下一集”。
 - Audio 和 Subtitles 根据 Media3 当前 tracks 打开可聚焦轨道列表，字幕面板额外提供“关闭字幕”。
+- Speed 快捷项打开速度面板，可切换 0.5x、0.75x、1x、1.25x、1.5x 和 2x。
 
 ## API接口
 无外部 API。
 
 ## 数据模型
-使用 `HomeUiState`、`SearchUiState`、`SearchHistoryItem`、`DiscoveryContentUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`EmbyFavoriteDashboard`、`EmbyMediaDetail`、`EmbySeasonSummary`、`EmbySeasonEpisodes`、`HomeDashboardUiModel`、`FavoriteContentUiState`、`MediaDetailUiState`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource`、`PlaybackDetails`、`PlaybackQueue` 和 `PlayerTrackOption`。
+使用 `HomeUiState`、`SettingsUiState`、`ThemePreferences`、`SearchUiState`、`SearchHistoryItem`、`DiscoveryContentUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`EmbyFavoriteDashboard`、`EmbyMediaDetail`、`EmbySeasonSummary`、`EmbySeasonEpisodes`、`HomeDashboardUiModel`、`FavoriteContentUiState`、`MediaDetailUiState`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource`、`PlaybackDetails`、`PlaybackQueue` 和 `PlayerTrackOption`。
 
 ## 依赖
 - data
@@ -204,6 +214,7 @@ OSD 显示后：
 - Kotlinx Serialization JSON
 
 ## 变更历史
+- [202605291553_ui_interaction_optimization_phase3](../../history/2026-05/202605291553_ui_interaction_optimization_phase3/) - 完成 Phase 3 核心增强：主题偏好、设置页、播放速度、播放历史规则、可访问性语义和组件库文档。
 - [202605291529_ui_interaction_optimization_phase2](../../history/2026-05/202605291529_ui_interaction_optimization_phase2/) - 完成 Phase 2 UI 体验增强：搜索历史、加载骨架屏、媒体库字母索引和版本 0.4.0。
 - [202605291416_ui_interaction_optimization_phase1](../../history/2026-05/202605291416_ui_interaction_optimization_phase1/) - 完成 Phase 1 UI/交互体验优化：图片 crossfade 与占位、焦点渐变边框、状态面板、播放器缓冲进度和版本 0.3.0。
 - [202605291035_emby_tv_feature_completion](../../history/2026-05/202605291035_emby_tv_feature_completion/) - 新增 TV 搜索页、发现页、详情页用户态动作、播放器音字幕面板和连续播放。

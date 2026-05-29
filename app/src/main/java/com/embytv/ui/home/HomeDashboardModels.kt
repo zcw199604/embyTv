@@ -17,6 +17,7 @@ import java.util.Locale
 
 const val FAVORITES_NAVIGATION_ID = "favorites"
 const val SEARCH_NAVIGATION_ID = "search"
+const val SETTINGS_NAVIGATION_ID = "settings"
 private const val DISCOVERY_NAVIGATION_PREFIX = "discovery:"
 
 data class HomeNavigationItem(
@@ -369,6 +370,11 @@ object HomeDashboardMapper {
                 discoveryNavigationItem(DiscoveryKind.Playlists),
                 discoveryNavigationItem(DiscoveryKind.Genres),
                 discoveryNavigationItem(DiscoveryKind.Persons),
+                HomeNavigationItem(
+                    id = SETTINGS_NAVIGATION_ID,
+                    title = "设置",
+                    enabled = true,
+                ),
             ) + dashboard.libraries.map { library ->
                 HomeNavigationItem(
                     id = library.id,

@@ -5,7 +5,9 @@ import com.embytv.core.danmaku.AkDanmakuBridge
 import com.embytv.core.network.NetworkModule
 import com.embytv.core.player.Media3PlayerFactory
 import com.embytv.data.local.EncryptedEmbyCredentialStore
+import com.embytv.data.local.PlaybackHistoryStore
 import com.embytv.data.local.SearchHistoryStore
+import com.embytv.data.local.ThemePreferenceStore
 import com.embytv.data.remote.EmbyApiFactory
 import com.embytv.data.repository.EmbyRepository
 import com.embytv.data.repository.EmbyStreamUrlBuilder
@@ -16,6 +18,8 @@ import kotlinx.coroutines.SupervisorJob
 interface AppContainer {
     val embyRepository: EmbyRepository
     val searchHistoryStore: SearchHistoryStore
+    val playbackHistoryStore: PlaybackHistoryStore
+    val themePreferenceStore: ThemePreferenceStore
     val playerFactory: Media3PlayerFactory
     val danmakuBridge: AkDanmakuBridge
     val applicationScope: CoroutineScope
@@ -35,6 +39,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
         )
 
     override val searchHistoryStore: SearchHistoryStore = SearchHistoryStore(appContext)
+    override val playbackHistoryStore: PlaybackHistoryStore = PlaybackHistoryStore(appContext)
+    override val themePreferenceStore: ThemePreferenceStore = ThemePreferenceStore(appContext)
 
     override val playerFactory: Media3PlayerFactory =
         Media3PlayerFactory(appContext, okHttpClient)

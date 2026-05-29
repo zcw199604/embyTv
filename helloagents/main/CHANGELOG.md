@@ -6,7 +6,24 @@
 ## [Unreleased]
 
 ### 计划中
-- **[Phase 3 - v0.5.0]** 架构优化：完整组件库、多主题支持、高级播放器功能、可访问性完善
+
+## [0.5.0] - 2026-05-29
+
+### 新增
+- 新增兼容式主题系统，支持 Cinematic Glass、Dark Minimal、Emby Classic 和高对比度配色。
+- 新增显示与辅助设置页，可通过抽屉进入并持久化主题、高对比度和字体大小偏好。
+- 新增播放器速度控制，支持 0.5x、0.75x、1x、1.25x、1.5x 和 2x。
+- 新增播放历史本地存储规则和 DataStore 持久化基础，最多保留最近 50 条媒体记录。
+- 新增组件库 README 和核心组件 Compose Preview，记录组件分组、使用约定和设计令牌。
+- 新增可访问性语义工具，并为核心媒体卡片、媒体库卡片补充屏幕阅读器描述。
+
+### 变更
+- `CinematicGlassColors` 改为读取 `EmbyTvTheme` 的当前主题颜色，保留既有调用方式。
+- 应用版本提升至 `0.5.0`，`versionCode` 提升至 `6`。
+
+### 验证
+- `.\gradlew.bat :app:testDebugUnitTest` 通过。
+- `.\gradlew.bat :app:assembleDebug` 通过。
 
 ## [0.4.0] - 2026-05-29
 

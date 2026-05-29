@@ -5,6 +5,7 @@ import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.SavedEmbyCredential
 import com.embytv.domain.model.ServerConfigDraft
+import com.embytv.ui.theme.ThemePreferences
 
 data class HomeUiState(
     val serverConfig: ServerConfigDraft = ServerConfigDraft(),
@@ -21,8 +22,17 @@ data class HomeUiState(
     val search: SearchUiState = SearchUiState(),
     val discoveryContent: DiscoveryContentUiState = DiscoveryContentUiState(),
     val mediaDetail: MediaDetailUiState = MediaDetailUiState(),
+    val themePreferences: ThemePreferences = ThemePreferences(),
+    val settings: SettingsUiState = SettingsUiState(),
     val confirmation: HomeConfirmationUiState? = null,
 )
+
+data class SettingsUiState(
+    val isOpen: Boolean = false,
+) {
+    fun open(): SettingsUiState = copy(isOpen = true)
+    fun close(): SettingsUiState = SettingsUiState()
+}
 
 data class MobileSetupSyncUiState(
     val isRunning: Boolean = false,

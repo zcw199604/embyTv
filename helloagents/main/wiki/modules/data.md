@@ -66,6 +66,19 @@ Repository 请求 Emby 时：
 - 历史记录最多保存 20 条，按最新搜索倒序提供给 UI。
 - 支持按 query 删除单条历史，或清空全部历史。
 
+#### 场景: 播放历史本地存储
+播放器产生最近播放记录时：
+- `PlaybackHistoryStore` 使用 DataStore Preferences 持久化播放历史 JSON。
+- `PlaybackHistoryItem` 记录媒体 ID、标题、播放位置、时长、时间戳和缩略图 URL。
+- 相同媒体按 `mediaId` 去重并保留最新记录。
+- 播放历史最多保存 50 条，按最近播放倒序提供。
+
+#### 场景: 显示偏好本地存储
+用户调整主题或辅助设置后：
+- `ThemePreferenceStore` 使用 DataStore Preferences 保存主题 ID、高对比度开关和字体大小档位。
+- 非法主题 ID 或字体档位读取时回退到 Cinematic Glass 和 Normal。
+- `MainActivity` 收集偏好并传入 `EmbyTvTheme`，设置页写入后可即时生效。
+
 #### 场景: 发现页
 用户进入合集、播放列表、类型或演员页后：
 - 合集调用 `IncludeItemTypes=BoxSet`，详情用 `ParentId={boxSetId}`。
@@ -130,7 +143,7 @@ Repository 请求 Emby 时：
 见 [API 手册](../api.md)。
 
 ## 数据模型
-见 [数据模型](../data.md)。新增 `DiscoveryKind`、`DiscoveryEntrySummary`、`EmbyDiscoveryContent`、`DiscoveryEntryItems`、`EmbySearchResults`、`SearchHistoryItem`、`SearchHistoryStore`、`PlaybackQueue`、`PlayerTrackOption` 和 `SavedEmbyCredentialList`。
+见 [数据模型](../data.md)。新增 `DiscoveryKind`、`DiscoveryEntrySummary`、`EmbyDiscoveryContent`、`DiscoveryEntryItems`、`EmbySearchResults`、`SearchHistoryItem`、`SearchHistoryStore`、`PlaybackHistoryItem`、`PlaybackHistoryStore`、`ThemePreferenceStore`、`PlaybackQueue`、`PlayerTrackOption` 和 `SavedEmbyCredentialList`。
 
 ## 依赖
 - core.network
@@ -139,6 +152,7 @@ Repository 请求 Emby 时：
 - Kotlinx Serialization JSON
 
 ## 变更历史
+- [202605291553_ui_interaction_optimization_phase3](../../history/2026-05/202605291553_ui_interaction_optimization_phase3/) - 新增主题偏好、播放历史 DataStore 持久化基础和相关规则测试。
 - [202605291529_ui_interaction_optimization_phase2](../../history/2026-05/202605291529_ui_interaction_optimization_phase2/) - 新增搜索历史 DataStore 持久化、去重和数量上限规则。
 - [202605291035_emby_tv_feature_completion](../../history/2026-05/202605291035_emby_tv_feature_completion/) - 新增搜索、发现页、用户态写操作、播放队列和多凭证列表。
 - [202605291303_emby_review_issue_fixes](../../history/2026-05/202605291303_emby_review_issue_fixes/) - 修复认证图片请求、搜索取消、危险操作确认、播放上报和版本号来源。

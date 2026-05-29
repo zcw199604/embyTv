@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.embytv.core.network.MobileSetupSyncServer
 import com.embytv.data.local.SearchHistoryItem
 import com.embytv.data.local.SearchHistoryStore
+import com.embytv.data.local.ThemePreferenceStore
 import com.embytv.data.repository.EmbyRepository
 import com.embytv.domain.model.DiscoveryEntrySummary
 import com.embytv.domain.model.DiscoveryKind
@@ -17,6 +18,8 @@ import com.embytv.domain.model.PlaybackSource
 import com.embytv.domain.model.SavedEmbyCredential
 import com.embytv.domain.model.ServerConfigDraft
 import com.embytv.domain.model.ServerProtocol
+import com.embytv.ui.theme.AppThemeId
+import com.embytv.ui.theme.FontScale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +32,7 @@ import java.util.UUID
 class HomeViewModel(
     private val repository: EmbyRepository,
     private val searchHistoryStore: SearchHistoryStore,
+    private val themePreferenceStore: ThemePreferenceStore,
     private val syncServer: MobileSetupSyncServer = MobileSetupSyncServer(),
 ) : ViewModel() {
     private var deviceId: String = UUID.randomUUID().toString()
@@ -39,6 +43,7 @@ class HomeViewModel(
 
     init {
         observeSearchHistory()
+        observeThemePreferences()
         restoreSavedCredential()
     }
 
@@ -222,6 +227,42 @@ class HomeViewModel(
 
     fun closeFavorites() {
         _uiState.update { it.copy(favoriteContent = it.favoriteContent.close(), errorMessage = null) }
+    }
+
+    fun openSettings() {
+        _uiState.update {
+            it.copy(
+                settings = it.settings.open(),
+                libraryContent = it.libraryContent.close(),
+                favoriteContent = it.favoriteContent.close(),
+                search = it.search.close(),
+                discoveryContent = it.discoveryContent.close(),
+                mediaDetail = it.mediaDetail.close(),
+                errorMessage = null,
+            )
+        }
+    }
+
+    fun closeSettings() {
+        _uiState.update { it.copy(settings = it.settings.close(), errorMessage = null) }
+    }
+
+    fun selectTheme(themeId: AppThemeId) {
+        viewModelScope.launch {
+            themePreferenceStore.setTheme(themeId)
+        }
+    }
+
+    fun setHighContrast(enabled: Boolean) {
+        viewModelScope.launch {
+            themePreferenceStore.setHighContrast(enabled)
+        }
+    }
+
+    fun selectFontScale(fontScale: FontScale) {
+        viewModelScope.launch {
+            themePreferenceStore.setFontScale(fontScale)
+        }
     }
 
     fun selectFavoriteCategory(category: FavoriteCategory) {
@@ -571,6 +612,14 @@ class HomeViewModel(
         }
     }
 
+    private fun observeThemePreferences() {
+        viewModelScope.launch {
+            themePreferenceStore.preferencesFlow.collect { preferences ->
+                _uiState.update { it.copy(themePreferences = preferences) }
+            }
+        }
+    }
+
     private suspend fun loadDashboard(session: EmbySession): Result<Unit> {
         return repository.loadHomeDashboard(session, deviceId)
             .onSuccess { dashboard ->
@@ -585,6 +634,7 @@ class HomeViewModel(
                         search = it.search.close(),
                         discoveryContent = it.discoveryContent.close(),
                         mediaDetail = it.mediaDetail.close(),
+                        settings = it.settings.close(),
                     )
                 }
             }
@@ -757,11 +807,12 @@ class HomeViewModel(
     class Factory(
         private val repository: EmbyRepository,
         private val searchHistoryStore: SearchHistoryStore,
+        private val themePreferenceStore: ThemePreferenceStore,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(HomeViewModel::class.java))
-            return HomeViewModel(repository, searchHistoryStore) as T
+            return HomeViewModel(repository, searchHistoryStore, themePreferenceStore) as T
         }
     }
 }

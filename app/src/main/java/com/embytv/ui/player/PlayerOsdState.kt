@@ -4,7 +4,10 @@ enum class PlayerQuickPanel {
     Audio,
     Subtitles,
     Danmaku,
+    Speed,
 }
+
+val SupportedPlaybackSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
 
 data class PlayerOsdState(
     val visible: Boolean = true,
@@ -19,6 +22,7 @@ data class PlayerOsdState(
     val audioTracks: List<com.embytv.domain.model.PlayerTrackOption> = emptyList(),
     val subtitleTracks: List<com.embytv.domain.model.PlayerTrackOption> = emptyList(),
     val subtitleDisabled: Boolean = false,
+    val playbackSpeed: Float = 1.0f,
 ) {
     val progressFraction: Float
         get() = if (durationMs <= 0L) {
@@ -42,6 +46,7 @@ sealed interface PlayerOsdAction {
         val subtitleTracks: List<com.embytv.domain.model.PlayerTrackOption>,
     ) : PlayerOsdAction
     data object DisableSubtitles : PlayerOsdAction
+    data class SelectPlaybackSpeed(val speed: Float) : PlayerOsdAction
     data class ProgressChanged(
         val positionMs: Long,
         val durationMs: Long,
@@ -113,6 +118,17 @@ object PlayerOsdReducer {
                     ),
                 )
             }
+            is PlayerOsdAction.SelectPlaybackSpeed -> {
+                val speed = action.speed.nearestSupportedPlaybackSpeed()
+                PlayerOsdResult(
+                    state.copy(
+                        visible = true,
+                        selectedQuickPanel = PlayerQuickPanel.Speed,
+                        playbackSpeed = speed,
+                        feedbackMessage = "播放速度 ${speed.toSpeedLabel()}",
+                    ),
+                )
+            }
             is PlayerOsdAction.ProgressChanged -> {
                 PlayerOsdResult(
                     state.copy(
@@ -124,3 +140,13 @@ object PlayerOsdReducer {
             }
         }
 }
+
+fun Float.nearestSupportedPlaybackSpeed(): Float =
+    SupportedPlaybackSpeeds.minBy { kotlin.math.abs(it - this) }
+
+fun Float.toSpeedLabel(): String =
+    if (this == 1.0f || this % 1.0f == 0f) {
+        "${this.toInt()}x"
+    } else {
+        "${this}x"
+    }

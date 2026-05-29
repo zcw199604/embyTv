@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Subtitles
@@ -141,6 +142,10 @@ fun PlayerScreen(
             positionMs = player.currentPosition,
             isPaused = !osdState.isPlaying,
         )
+    }
+
+    LaunchedEffect(osdState.playbackSpeed) {
+        player.setPlaybackSpeed(osdState.playbackSpeed)
     }
 
     LaunchedEffect(osdState.danmakuEnabled, osdState.danmakuPaused) {
@@ -344,6 +349,7 @@ fun PlayerScreen(
                     .build()
                 dispatch(PlayerOsdAction.DisableSubtitles)
             },
+            onSelectSpeed = { dispatch(PlayerOsdAction.SelectPlaybackSpeed(it)) },
             onToggleDanmaku = { dispatch(PlayerOsdAction.ToggleDanmaku) },
             onQuickPanel = { dispatch(PlayerOsdAction.SelectQuickPanel(it)) },
             onUnsupported = { dispatch(PlayerOsdAction.UnsupportedAction(it)) },
@@ -403,6 +409,7 @@ private fun PlayerOsdOverlay(
     onNext: () -> Unit,
     onSelectTrack: (PlayerTrackOption) -> Unit,
     onDisableSubtitles: () -> Unit,
+    onSelectSpeed: (Float) -> Unit,
     onToggleDanmaku: () -> Unit,
     onQuickPanel: (PlayerQuickPanel?) -> Unit,
     onUnsupported: (String) -> Unit,
@@ -521,6 +528,16 @@ private fun PlayerOsdOverlay(
                     onUnsupported = onUnsupported,
                 )
                 QuickSettingPill(
+                    icon = Icons.Filled.Speed,
+                    label = "Speed",
+                    value = state.playbackSpeed.toSpeedLabel(),
+                    selected = state.selectedQuickPanel == PlayerQuickPanel.Speed,
+                    enabled = true,
+                    disabledReason = null,
+                    onClick = { onQuickPanel(PlayerQuickPanel.Speed) },
+                    onUnsupported = onUnsupported,
+                )
+                QuickSettingPill(
                     icon = Icons.AutoMirrored.Filled.Chat,
                     label = "Danmaku",
                     value = if (state.danmakuEnabled) "On" else "Off",
@@ -535,6 +552,7 @@ private fun PlayerOsdOverlay(
                 state = state,
                 onSelectTrack = onSelectTrack,
                 onDisableSubtitles = onDisableSubtitles,
+                onSelectSpeed = onSelectSpeed,
             )
             ProgressRail(state = state)
             Row(
@@ -588,11 +606,28 @@ private fun TrackQuickPanel(
     state: PlayerOsdState,
     onSelectTrack: (PlayerTrackOption) -> Unit,
     onDisableSubtitles: () -> Unit,
+    onSelectSpeed: (Float) -> Unit,
 ) {
     val tracks = when (state.selectedQuickPanel) {
         PlayerQuickPanel.Audio -> state.audioTracks
         PlayerQuickPanel.Subtitles -> state.subtitleTracks
         else -> emptyList()
+    }
+    if (state.selectedQuickPanel == PlayerQuickPanel.Speed) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SupportedPlaybackSpeeds.forEach { speed ->
+                QuickTrackButton(
+                    label = speed.toSpeedLabel(),
+                    selected = state.playbackSpeed == speed,
+                    onClick = { onSelectSpeed(speed) },
+                )
+            }
+        }
+        return
     }
     if (tracks.isEmpty() && state.selectedQuickPanel != PlayerQuickPanel.Subtitles) return
     Row(

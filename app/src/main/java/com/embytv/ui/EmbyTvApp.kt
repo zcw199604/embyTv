@@ -22,6 +22,7 @@ fun EmbyTvApp(container: AppContainer) {
         factory = HomeViewModel.Factory(
             repository = container.embyRepository,
             searchHistoryStore = container.searchHistoryStore,
+            themePreferenceStore = container.themePreferenceStore,
         ),
     )
 

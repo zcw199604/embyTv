@@ -25,13 +25,16 @@
 - **加载体验:** 主要内容加载态优先使用骨架屏组件，骨架尺寸应贴近实际卡片、列表或详情结构。
 - **搜索体验:** 搜索成功后保存最近 20 条历史记录，搜索页空关键词时显示历史记录，支持点击复搜、单条删除和清空。
 - **长列表导航:** 媒体库资源数量较多时显示字母索引和滚动位置指示器，索引仅对存在内容的首字母启用。
+- **主题系统:** `EmbyTvTheme` 通过 `ThemePreferences` 提供当前颜色和字体偏好；旧组件继续通过 `CinematicGlassColors` 读取主题色。
+- **可访问性:** 核心可聚焦卡片需要提供 `contentDescription` 或 `Modifier.accessibilityLabel()`，设置页提供高对比度和字体大小偏好。
 - **Kotlin 配置:** AGP 9 已内置 Android Kotlin 支持，app 模块不再应用 `org.jetbrains.kotlin.android` 插件；Compose 编译仍使用 `org.jetbrains.kotlin.plugin.compose`。
 - **播放器:** 通过 `Media3PlayerFactory` 创建，默认启用 `EXTENSION_RENDERER_MODE_PREFER`；播放页关闭 Media3 默认控制器，使用 Compose OSD 管理 TV 操作。
+- **播放器增强:** 播放 OSD 支持 Media3 播放速度切换，当前支持 0.5x、0.75x、1x、1.25x、1.5x、2x。
 - **FFmpeg 扩展:** Media3 FFmpeg 扩展未发布到 Google Maven，需自行构建 AAR 放入 `app/libs/`。
 - **弹幕:** AkDanmaku 通过 `AkDanmakuBridge` 与领域模型隔离。
 - **服务器配置:** TV 端使用结构化字段生成 Emby `baseUrl`；手机扫码同步通过 TV 本机临时 HTTP 服务完成。
 - **凭证:** Emby 用户名和密码只用于 `/Users/AuthenticateByName`；本地保存 `accessToken`、`userId`、`serverId`、`serverUrl`、`deviceId`、`username` 展示字段和保存时间，不保存密码。
-- **新增依赖:** ZXing Core 3.5.4 生成二维码，NanoHTTPD 2.3.1 提供临时手机同步页，AndroidX Security Crypto 1.1.0 保存访问凭证，DataStore Preferences 1.2.0 + Kotlinx Serialization JSON 1.10.0 保存搜索历史。
+- **新增依赖:** ZXing Core 3.5.4 生成二维码，NanoHTTPD 2.3.1 提供临时手机同步页，AndroidX Security Crypto 1.1.0 保存访问凭证，DataStore Preferences 1.2.0 + Kotlinx Serialization JSON 1.10.0 保存搜索历史、播放历史和显示偏好。
 
 ---
 

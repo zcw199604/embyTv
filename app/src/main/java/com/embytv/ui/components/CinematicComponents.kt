@@ -86,6 +86,7 @@ import com.embytv.ui.home.MediaCardUiModel
 import com.embytv.ui.theme.CinematicGlassColors
 import com.embytv.ui.theme.CinematicGlassSpacing
 import com.embytv.ui.utils.EmbyAnimationSpecs
+import com.embytv.ui.utils.accessibilityLabel
 
 val LocalEmbyImageAuthorizationHeader = compositionLocalOf<String?> { null }
 
@@ -150,6 +151,7 @@ fun FocusableGlassSurface(
     GlassPanel(
         modifier = modifier
             .scale(scale)
+            .then(disabledReason?.let { Modifier.accessibilityLabel(it) } ?: Modifier)
             .onFocusChanged { focused = it.isFocused }
             .onKeyEvent { event ->
                 if (event.type != KeyEventType.KeyUp) {
@@ -273,7 +275,15 @@ fun MediaPosterCard(
         FocusableGlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(2f / 3f),
+                .aspectRatio(2f / 3f)
+                .accessibilityLabel(
+                    label = "${card.title}, ${card.subtitle}",
+                    state = if (card.progressFraction > 0f) {
+                        "已观看 ${(card.progressFraction * 100).toInt()}%"
+                    } else {
+                        "未观看"
+                    },
+                ),
             cornerRadius = 10.dp,
             onClick = onClick,
         ) { focused ->
@@ -374,7 +384,12 @@ fun LibraryCard(
     onUnsupported: (String) -> Unit = {},
 ) {
     FocusableGlassSurface(
-        modifier = modifier.aspectRatio(16f / 9f),
+        modifier = modifier
+            .aspectRatio(16f / 9f)
+            .accessibilityLabel(
+                label = library.title,
+                state = if (library.enabled) library.countLabel else library.disabledReason,
+            ),
         enabled = library.enabled,
         disabledReason = library.disabledReason,
         onClick = onClick,

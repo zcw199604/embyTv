@@ -95,4 +95,21 @@ class PlayerOsdReducerTest {
         assertEquals(0, state.durationMs)
         assertEquals(1f, state.bufferedFraction)
     }
+
+    @Test
+    fun playbackSpeedSelectionClampsToSupportedValues() {
+        val tooFast = PlayerOsdReducer.reduce(
+            PlayerOsdState(),
+            PlayerOsdAction.SelectPlaybackSpeed(3.25f),
+        ).state
+        val supported = PlayerOsdReducer.reduce(
+            tooFast,
+            PlayerOsdAction.SelectPlaybackSpeed(1.5f),
+        ).state
+
+        assertEquals(2.0f, tooFast.playbackSpeed)
+        assertEquals(PlayerQuickPanel.Speed, tooFast.selectedQuickPanel)
+        assertEquals("播放速度 2x", tooFast.feedbackMessage)
+        assertEquals(1.5f, supported.playbackSpeed)
+    }
 }

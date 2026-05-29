@@ -84,6 +84,8 @@ import com.embytv.ui.components.panels.ErrorType
 import com.embytv.ui.setup.SetupScreen
 import com.embytv.ui.theme.CinematicGlassColors
 import com.embytv.ui.theme.CinematicGlassSpacing
+import com.embytv.ui.theme.AppThemeId
+import com.embytv.ui.theme.FontScale
 import kotlinx.coroutines.launch
 
 @Composable
@@ -132,6 +134,11 @@ fun HomeScreen(
                 onSelectSearchHistory = viewModel::selectSearchHistory,
                 onRemoveSearchHistory = viewModel::removeSearchHistory,
                 onClearSearchHistory = viewModel::clearSearchHistory,
+                onOpenSettings = viewModel::openSettings,
+                onCloseSettings = viewModel::closeSettings,
+                onSelectTheme = viewModel::selectTheme,
+                onSetHighContrast = viewModel::setHighContrast,
+                onSelectFontScale = viewModel::selectFontScale,
                 onOpenDiscovery = viewModel::openDiscovery,
                 onBackFromDiscovery = viewModel::backFromDiscovery,
                 onCloseDiscovery = viewModel::closeDiscovery,
@@ -289,6 +296,11 @@ private fun HomeDashboardScreen(
     onSelectSearchHistory: (SearchHistoryItem) -> Unit,
     onRemoveSearchHistory: (String) -> Unit,
     onClearSearchHistory: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onCloseSettings: () -> Unit,
+    onSelectTheme: (AppThemeId) -> Unit,
+    onSetHighContrast: (Boolean) -> Unit,
+    onSelectFontScale: (FontScale) -> Unit,
     onOpenDiscovery: (DiscoveryKind) -> Unit,
     onBackFromDiscovery: () -> Unit,
     onCloseDiscovery: () -> Unit,
@@ -372,6 +384,14 @@ private fun HomeDashboardScreen(
                 onPlay = onPlay,
                 onOpenMediaDetail = onOpenMediaDetail,
                 onUnsupported = { hintMessage = it },
+            )
+        } else if (state.settings.isOpen) {
+            SettingsScreen(
+                preferences = state.themePreferences,
+                onBack = onCloseSettings,
+                onSelectTheme = onSelectTheme,
+                onSetHighContrast = onSetHighContrast,
+                onSelectFontScale = onSelectFontScale,
             )
         } else if (state.discoveryContent.isOpen) {
             DiscoveryScreen(
@@ -519,6 +539,7 @@ private fun HomeDashboardScreen(
                     when (item.id) {
                         SEARCH_NAVIGATION_ID -> onOpenSearch()
                         FAVORITES_NAVIGATION_ID -> onOpenFavorites()
+                        SETTINGS_NAVIGATION_ID -> onOpenSettings()
                         else -> {
                             val discoveryKind = HomeDashboardMapper.discoveryKindFromNavigationId(item.id)
                             if (discoveryKind != null) {
@@ -537,6 +558,121 @@ private fun HomeDashboardScreen(
             confirmation = state.confirmation,
             onConfirm = onConfirm,
             onCancel = onCancelConfirmation,
+        )
+    }
+}
+
+@Composable
+private fun SettingsScreen(
+    preferences: com.embytv.ui.theme.ThemePreferences,
+    onBack: () -> Unit,
+    onSelectTheme: (AppThemeId) -> Unit,
+    onSetHighContrast: (Boolean) -> Unit,
+    onSelectFontScale: (FontScale) -> Unit,
+) {
+    val backFocusRequester = remember { FocusRequester() }
+    BackHandler(enabled = true, onBack = onBack)
+    LaunchedEffect(Unit) {
+        backFocusRequester.requestFocus()
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = CinematicGlassSpacing.SafeAreaX,
+                vertical = CinematicGlassSpacing.SafeAreaY,
+            ),
+        verticalArrangement = Arrangement.spacedBy(26.dp),
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RoundIconButton(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "返回首页",
+                        onClick = onBack,
+                        modifier = Modifier.focusRequester(backFocusRequester),
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "显示与辅助设置",
+                            color = CinematicGlassColors.OnSurface,
+                            fontSize = 34.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "当前主题：${preferences.themeId.displayName}",
+                            color = CinematicGlassColors.OnSurfaceVariant,
+                            fontSize = 14.sp,
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            SettingsSection(title = "主题") {
+                AppThemeId.entries.forEach { themeId ->
+                    SettingsOptionChip(
+                        title = themeId.displayName,
+                        selected = preferences.themeId == themeId && !preferences.highContrast,
+                        onClick = { onSelectTheme(themeId) },
+                    )
+                }
+            }
+        }
+        item {
+            SettingsSection(title = "可访问性") {
+                SettingsOptionChip(
+                    title = "高对比度",
+                    selected = preferences.highContrast,
+                    onClick = { onSetHighContrast(!preferences.highContrast) },
+                )
+                FontScale.entries.forEach { scale ->
+                    SettingsOptionChip(
+                        title = "字体 ${scale.displayName}",
+                        selected = preferences.fontScale == scale,
+                        onClick = { onSelectFontScale(scale) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionHeader(title = title)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SettingsOptionChip(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    FocusableGlassSurface(
+        cornerRadius = 999.dp,
+        onClick = onClick,
+    ) {
+        Text(
+            text = if (selected) "$title ✓" else title,
+            color = if (selected) CinematicGlassColors.Primary else CinematicGlassColors.OnSurface,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
         )
     }
 }
