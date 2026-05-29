@@ -1,5 +1,6 @@
 package com.embytv.ui.components
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -50,12 +51,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -76,10 +79,13 @@ import coil3.compose.AsyncImage
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.embytv.ui.home.HomeNavigationItem
 import com.embytv.ui.home.LibrarySummaryUiModel
 import com.embytv.ui.home.MediaCardUiModel
 import com.embytv.ui.theme.CinematicGlassColors
+import com.embytv.ui.theme.CinematicGlassSpacing
+import com.embytv.ui.utils.EmbyAnimationSpecs
 
 val LocalEmbyImageAuthorizationHeader = compositionLocalOf<String?> { null }
 
@@ -91,13 +97,33 @@ fun GlassPanel(
     content: @Composable () -> Unit,
 ) {
     val shape = RoundedCornerShape(cornerRadius)
+    val borderWidth by animateDpAsState(
+        targetValue = if (focused) 3.dp else 1.dp,
+        animationSpec = EmbyAnimationSpecs.FocusDp,
+        label = "glass-border-width",
+    )
+    val elevation by animateDpAsState(
+        targetValue = if (focused) 8.dp else 0.dp,
+        animationSpec = EmbyAnimationSpecs.FocusDp,
+        label = "glass-elevation",
+    )
     Box(
         modifier = modifier
+            .shadow(elevation, shape)
             .clip(shape)
             .background(if (focused) Color.White.copy(alpha = 0.12f) else CinematicGlassColors.Glass, shape)
             .border(
-                width = if (focused) 2.dp else 1.dp,
-                color = if (focused) CinematicGlassColors.Primary else Color.White.copy(alpha = 0.12f),
+                width = borderWidth,
+                brush = if (focused) {
+                    Brush.linearGradient(
+                        colors = listOf(
+                            CinematicGlassColors.Primary,
+                            CinematicGlassColors.Secondary,
+                        ),
+                    )
+                } else {
+                    SolidColor(Color.White.copy(alpha = 0.12f))
+                },
                 shape = shape,
             ),
     ) {
@@ -174,27 +200,30 @@ fun NetworkBackdropImage(
     } else {
         val context = LocalContext.current
         val authorizationHeader = LocalEmbyImageAuthorizationHeader.current
-        val model = remember(imageUrl, authorizationHeader, context) {
-            if (authorizationHeader.isNullOrBlank()) {
-                imageUrl
-            } else {
-                ImageRequest.Builder(context)
-                    .data(imageUrl)
-                    .memoryCacheKey(imageUrl)
-                    .diskCacheKey(imageUrl)
-                    .httpHeaders(
+        val model = remember(imageUrl, authorizationHeader) {
+            ImageRequest.Builder(context)
+                .data(imageUrl)
+                .memoryCacheKey(imageUrl)
+                .diskCacheKey(imageUrl)
+                .crossfade(300)
+                .apply {
+                    if (!authorizationHeader.isNullOrBlank()) {
+                        httpHeaders(
                         NetworkHeaders.Builder()
                             .set("X-Emby-Authorization", authorizationHeader)
                             .build(),
-                    )
-                    .build()
-            }
+                        )
+                    }
+                }
+                .build()
         }
         AsyncImage(
             model = model,
             contentDescription = contentDescription,
             contentScale = ContentScale.Crop,
             modifier = modifier,
+            placeholder = androidx.compose.ui.graphics.painter.ColorPainter(CinematicGlassColors.SurfaceHigh),
+            error = androidx.compose.ui.graphics.painter.ColorPainter(CinematicGlassColors.Surface),
         )
     }
 }
@@ -219,8 +248,14 @@ fun ImagePlaceholder(
         Icon(
             imageVector = Icons.Filled.Image,
             contentDescription = null,
-            tint = CinematicGlassColors.OnSurfaceVariant.copy(alpha = 0.55f),
-            modifier = Modifier.size(if (compact) 42.dp else 72.dp),
+            tint = CinematicGlassColors.DisabledText,
+            modifier = Modifier.size(
+                if (compact) {
+                    CinematicGlassSpacing.PlaceholderIconSizeCompact
+                } else {
+                    CinematicGlassSpacing.PlaceholderIconSize
+                },
+            ),
         )
     }
 }
@@ -599,7 +634,7 @@ fun RoundIconButton(
     modifier: Modifier = Modifier,
 ) {
     FocusableGlassSurface(
-        modifier = modifier.size(44.dp),
+        modifier = modifier.size(CinematicGlassSpacing.IconButtonSize),
         cornerRadius = 999.dp,
         onClick = onClick,
     ) {

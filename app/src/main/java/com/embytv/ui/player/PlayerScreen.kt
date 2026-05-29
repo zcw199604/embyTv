@@ -157,6 +157,7 @@ fun PlayerScreen(
                 PlayerOsdAction.ProgressChanged(
                     positionMs = player.currentPosition,
                     durationMs = player.duration.takeIf { it > 0L } ?: 0L,
+                    bufferedFraction = player.bufferedFraction(),
                 ),
             )
             currentReportingCoordinator.onProgressTick(
@@ -676,13 +677,19 @@ private fun ProgressRail(state: PlayerOsdState) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(6.dp)
+                .height(CinematicGlassSpacing.ProgressRailHeight)
                 .background(Color.White.copy(alpha = 0.16f), RoundedCornerShape(999.dp)),
         ) {
             Box(
                 modifier = Modifier
+                    .fillMaxWidth(state.bufferedFraction.coerceAtLeast(state.progressFraction))
+                    .height(CinematicGlassSpacing.ProgressRailHeight)
+                    .background(Color.White.copy(alpha = 0.35f), RoundedCornerShape(999.dp)),
+            )
+            Box(
+                modifier = Modifier
                     .fillMaxWidth(state.progressFraction)
-                    .height(6.dp)
+                    .height(CinematicGlassSpacing.ProgressRailHeight)
                     .background(CinematicGlassColors.Primary, RoundedCornerShape(999.dp)),
             )
         }
@@ -746,6 +753,11 @@ private fun Long.toClockLabel(): String {
     } else {
         "%02d:%02d".format(minutes, seconds)
     }
+}
+
+private fun Player.bufferedFraction(): Float {
+    val duration = duration.takeIf { it > 0L } ?: return 0f
+    return (bufferedPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
 }
 
 private fun Tracks.toTrackOptions(trackType: Int): List<PlayerTrackOption> =

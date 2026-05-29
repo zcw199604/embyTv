@@ -11,6 +11,7 @@ data class PlayerOsdState(
     val isPlaying: Boolean = true,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
+    val bufferedFraction: Float = 0f,
     val danmakuEnabled: Boolean = true,
     val danmakuPaused: Boolean = false,
     val selectedQuickPanel: PlayerQuickPanel? = null,
@@ -41,7 +42,11 @@ sealed interface PlayerOsdAction {
         val subtitleTracks: List<com.embytv.domain.model.PlayerTrackOption>,
     ) : PlayerOsdAction
     data object DisableSubtitles : PlayerOsdAction
-    data class ProgressChanged(val positionMs: Long, val durationMs: Long) : PlayerOsdAction
+    data class ProgressChanged(
+        val positionMs: Long,
+        val durationMs: Long,
+        val bufferedFraction: Float = 0f,
+    ) : PlayerOsdAction
 }
 
 data class PlayerOsdResult(
@@ -113,6 +118,7 @@ object PlayerOsdReducer {
                     state.copy(
                         positionMs = action.positionMs.coerceAtLeast(0L),
                         durationMs = action.durationMs.coerceAtLeast(0L),
+                        bufferedFraction = action.bufferedFraction.coerceIn(0f, 1f),
                     ),
                 )
             }

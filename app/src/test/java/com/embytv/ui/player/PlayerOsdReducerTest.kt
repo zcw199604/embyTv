@@ -75,11 +75,24 @@ class PlayerOsdReducerTest {
     fun updatesProgress() {
         val state = PlayerOsdReducer.reduce(
             PlayerOsdState(),
-            PlayerOsdAction.ProgressChanged(positionMs = 1_000, durationMs = 4_000),
+            PlayerOsdAction.ProgressChanged(positionMs = 1_000, durationMs = 4_000, bufferedFraction = 0.5f),
         ).state
 
         assertEquals(1_000, state.positionMs)
         assertEquals(4_000, state.durationMs)
         assertEquals(0.25f, state.progressFraction)
+        assertEquals(0.5f, state.bufferedFraction)
+    }
+
+    @Test
+    fun clampsBufferedProgress() {
+        val state = PlayerOsdReducer.reduce(
+            PlayerOsdState(),
+            PlayerOsdAction.ProgressChanged(positionMs = -1_000, durationMs = -4_000, bufferedFraction = 1.5f),
+        ).state
+
+        assertEquals(0, state.positionMs)
+        assertEquals(0, state.durationMs)
+        assertEquals(1f, state.bufferedFraction)
     }
 }

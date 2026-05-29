@@ -65,6 +65,9 @@ import com.embytv.ui.components.PrimaryTvButton
 import com.embytv.ui.components.RemoteHint
 import com.embytv.ui.components.RoundIconButton
 import com.embytv.ui.components.TopChromeBar
+import com.embytv.ui.components.panels.EmptyStatePanel
+import com.embytv.ui.components.panels.ErrorStatePanel
+import com.embytv.ui.components.panels.ErrorType
 import com.embytv.ui.setup.SetupScreen
 import com.embytv.ui.theme.CinematicGlassColors
 import com.embytv.ui.theme.CinematicGlassSpacing
@@ -194,10 +197,10 @@ private fun CredentialPickerScreen(
                 }
             }
             if (state.errorMessage != null) {
-                item { LibraryStatePanel(title = "凭证恢复失败", subtitle = state.errorMessage) }
+                item { LibraryStatePanel(title = "凭证恢复失败", subtitle = state.errorMessage, errorType = ErrorType.Auth) }
             }
             if (state.savedCredentials.isEmpty()) {
-                item { LibraryStatePanel(title = "暂无已保存身份", subtitle = "请添加服务器并登录。") }
+                item { LibraryStatePanel(title = "暂无已保存身份", subtitle = "请添加服务器并登录。", empty = true) }
             } else {
                 items(state.savedCredentials, key = { it.uniqueKey }) { credential ->
                     CredentialCard(
@@ -598,8 +601,15 @@ private fun FavoriteContentScreen(
 
         when {
             state.isLoading -> item { LibraryStatePanel(title = "正在加载收藏", subtitle = "正在从 Emby 获取你的收藏资源。") }
-            state.errorMessage != null -> item { LibraryStatePanel(title = "收藏加载失败", subtitle = state.errorMessage) }
-            uiModel.isEmpty -> item { LibraryStatePanel(title = uiModel.emptyTitle, subtitle = uiModel.emptySubtitle) }
+            state.errorMessage != null -> item {
+                LibraryStatePanel(
+                    title = "收藏加载失败",
+                    subtitle = state.errorMessage,
+                    errorType = ErrorType.Network,
+                    onRetry = onRetry,
+                )
+            }
+            uiModel.isEmpty -> item { LibraryStatePanel(title = uiModel.emptyTitle, subtitle = uiModel.emptySubtitle, empty = true) }
             else -> items(mediaItems.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
                 FavoriteGridRow(
                     items = rowItems,
@@ -716,8 +726,15 @@ private fun LibraryContentScreen(
 
         when {
             state.isLoading -> item { LibraryStatePanel(title = "正在加载媒体库", subtitle = "正在从 Emby 获取该媒体库的资源列表。") }
-            state.errorMessage != null -> item { LibraryStatePanel(title = "媒体库加载失败", subtitle = state.errorMessage) }
-            state.content?.items.isNullOrEmpty() -> item { LibraryStatePanel(title = "该媒体库暂无可展示资源", subtitle = "当前列表只展示电影和剧集资源。") }
+            state.errorMessage != null -> item {
+                LibraryStatePanel(
+                    title = "媒体库加载失败",
+                    subtitle = state.errorMessage,
+                    errorType = ErrorType.Network,
+                    onRetry = onRetry,
+                )
+            }
+            state.content?.items.isNullOrEmpty() -> item { LibraryStatePanel(title = "该媒体库暂无可展示资源", subtitle = "当前列表只展示电影和剧集资源。", empty = true) }
             else -> items(state.content.items.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
                 LibraryGridRow(
                     items = rowItems,
@@ -771,15 +788,26 @@ private fun LibraryGridRow(
 private fun LibraryStatePanel(
     title: String,
     subtitle: String,
+    errorType: ErrorType? = null,
+    empty: Boolean = false,
+    onRetry: (() -> Unit)? = null,
 ) {
-    GlassPanel(modifier = Modifier.fillMaxWidth(), cornerRadius = 12.dp) {
-        Column(
-            modifier = Modifier.padding(28.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(text = title, color = CinematicGlassColors.OnSurface, fontSize = 22.sp)
-            Text(text = subtitle, color = CinematicGlassColors.OnSurfaceVariant, fontSize = 16.sp)
-        }
+    val inferredErrorType = errorType ?: if ("失败" in title) ErrorType.Network else null
+    when {
+        inferredErrorType != null -> ErrorStatePanel(
+            title = title,
+            subtitle = subtitle,
+            errorType = inferredErrorType,
+            onRetry = onRetry,
+        )
+        empty -> EmptyStatePanel(
+            title = title,
+            subtitle = subtitle,
+        )
+        else -> EmptyStatePanel(
+            title = title,
+            subtitle = subtitle,
+        )
     }
 }
 

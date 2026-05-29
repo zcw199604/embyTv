@@ -55,6 +55,13 @@ Emby 登录成功后：
 **模块:** ui
 基于设计稿 `stitch_emby_tv_interface_redesign.zip` 落地深色玻璃拟态 TV 体验，覆盖配置、首页和播放主链路。
 
+#### 场景: 通用视觉反馈
+页面和卡片复用 Cinematic Glass 组件时：
+- `GlassPanel` 在焦点态使用 200ms 动画，将边框从 1dp 过渡到 3dp，并显示 Emby Green 到强调黄的渐变边框和 8dp 阴影。
+- 网络图片通过 Coil `ImageRequest` 加载，统一保留 `X-Emby-Authorization` Header、内存/磁盘 cache key、300ms crossfade、加载占位和失败占位。
+- 图片缺失、加载中或加载失败时必须保持稳定占位，不允许出现白屏闪烁。
+- 加载失败和空数据场景优先使用 `ErrorStatePanel` / `EmptyStatePanel` 展示图标、标题、说明和可选重试按钮。
+
 #### 场景: 服务器配置
 未连接 Emby 时：
 - 首屏展示快速配对占位码和手动服务器配置区。
@@ -107,6 +114,7 @@ Emby 登录成功后：
 播放页进入后：
 - 点击媒体后先读取 `Items/{itemId}/PlaybackInfo`，`PlaybackSource.details` 携带真实媒体源和音视频/字幕流信息。
 - `PlayerView` 关闭默认控制器，由 Compose OSD 展示标题、真实容器/编码/画质信息、进度、快进/快退、播放/暂停、音轨/字幕/弹幕入口。
+- 播放进度条采用双层进度显示：灰色缓冲进度层来自 Media3 `bufferedPosition`，绿色播放进度层来自当前播放位置。
 - Audio/Subtitles 展示真实默认流或首个流标题；实际切换暂未实现时提供禁用原因。
 - Audio/Subtitles 根据 Media3 当前 tracks 打开可聚焦轨道列表，字幕面板额外提供“关闭字幕”。
 - `PlaybackSource.queue` 有上一集/下一集时，OSD 按钮可直接切换；自然播放结束后自动播放下一集。
@@ -182,6 +190,7 @@ OSD 显示后：
 - NanoHTTPD
 
 ## 变更历史
+- [202605291416_ui_interaction_optimization_phase1](../../history/2026-05/202605291416_ui_interaction_optimization_phase1/) - 完成 Phase 1 UI/交互体验优化：图片 crossfade 与占位、焦点渐变边框、状态面板、播放器缓冲进度和版本 0.3.0。
 - [202605291035_emby_tv_feature_completion](../../history/2026-05/202605291035_emby_tv_feature_completion/) - 新增 TV 搜索页、发现页、详情页用户态动作、播放器音字幕面板和连续播放。
 - [202605291303_emby_review_issue_fixes](../../history/2026-05/202605291303_emby_review_issue_fixes/) - 修复审查发现的认证图片、搜索取消、危险操作确认、播放上报和版本号一致性问题。
 - [202605281948_performance_optimization](../../history/2026-05/202605281948_performance_optimization/) - 优化已保存 token 冷启动路径，避免先启动手机扫码同步服务。

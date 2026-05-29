@@ -14,11 +14,17 @@ object CinematicGlassColors {
     val GlassStrong = Color(0x26000000)
     val OnSurface = Color(0xFFE5E2E1)
     val OnSurfaceVariant = Color(0xFFBECAB7)
+    val OnSurfaceMedium = Color(0xFFD0CCC9)
+    val InfoText = OnSurfaceVariant
+    val MetadataText = OnSurfaceMedium
+    val DisabledText = OnSurfaceVariant.copy(alpha = 0.55f)
     val Primary = Color(0xFF78DD6D)
     val OnPrimary = Color(0xFF003A04)
     val PrimaryContainer = Color(0xFF52B54B)
     val Secondary = Color(0xFFE9C349)
     val Error = Color(0xFFFFB4AB)
+    val ErrorContainer = Error.copy(alpha = 0.12f)
+    val OnErrorContainer = Error
     val Outline = Color(0xFF899483)
     val OutlineVariant = Color(0xFF3F4A3B)
 }
@@ -29,6 +35,14 @@ object CinematicGlassSpacing {
     val Gutter = 32.dp
     val CardGap = 24.dp
     val SidebarWidth = 320.dp
+    val IconButtonSize = 44.dp
+    val IconButtonLargeSize = 58.dp
+    val IconButtonPrimarySize = 76.dp
+    val ProgressRailHeight = 8.dp
+    val ProgressRailHeightCompact = 4.dp
+    val ErrorIconSize = 56.dp
+    val PlaceholderIconSize = 72.dp
+    val PlaceholderIconSizeCompact = 42.dp
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)

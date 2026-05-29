@@ -25,6 +25,8 @@
 - 默认每 10 秒调用 `POST Sessions/Playing/Progress`。
 - 播放/暂停按钮切换、生命周期暂停、快退和快进后立即强制上报。
 - Media3 毫秒位置统一转换为 Emby ticks。
+- OSD 每秒读取 Media3 当前播放位置、总时长和 `bufferedPosition`，`PlayerOsdState.bufferedFraction` 只保存 0..1 的缓冲比例。
+- 进度条 UI 必须确保缓冲层不小于播放层，弱网时可直观看到已缓冲范围。
 
 #### 场景: 停止播放
 当播放自然结束、退出播放页或播放器释放时：
@@ -50,12 +52,13 @@
 - `POST Sessions/Playing/Stopped`
 
 ## 数据模型
-使用 `PlaybackSource.streamUrl`、`PlaybackSource.session`、`PlaybackSource.deviceId`、`PlaybackReportingCoordinator` 和 Emby Playback Check-ins DTO。
+使用 `PlaybackSource.streamUrl`、`PlaybackSource.session`、`PlaybackSource.deviceId`、`PlaybackReportingCoordinator`、`PlayerOsdState.bufferedFraction` 和 Emby Playback Check-ins DTO。
 
 ## 依赖
 - core.network
 - Media3
 
 ## 变更历史
+- [202605291416_ui_interaction_optimization_phase1](../../history/2026-05/202605291416_ui_interaction_optimization_phase1/) - 播放器 OSD 新增缓冲进度状态和双层进度条展示。
 - [202605272133_emby_playback_reporting](../../history/2026-05/202605272133_emby_playback_reporting/) - 接入 Emby Playback Check-ins，播放、暂停、进度和退出时同步后台状态。
 - [202605201342_emby_tv_init](../../history/2026-05/202605201342_emby_tv_init/) - 初始化 Media3 播放工厂。

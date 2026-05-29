@@ -16,9 +16,11 @@
 
 ## 开发约定
 - **架构:** MVVM；UI 只消费 ViewModel 暴露的状态，不直接访问 Retrofit。
+- **UI组件化:** 正在进行组件库建设，目标是将可复用组件从Screen文件中提取到独立模块。
 - **依赖:** 统一维护在 `gradle/libs.versions.toml`。
 - **图片加载:** Compose 网络图片统一使用 Coil Compose；媒体图片缺失或加载失败时必须提供稳定占位。
-- **TV 视觉:** 核心页面采用 Cinematic Glass 深色玻璃拟态；焦点态使用 Emby Green，并保留大屏安全区。
+- **TV 视觉:** 核心页面采用 Cinematic Glass 深色玻璃拟态；焦点态使用 Emby Green 到强调黄的渐变边框、200ms 动画和 8dp 阴影，并保留大屏安全区。
+- **状态面板:** 加载失败和空数据场景优先使用 `ErrorStatePanel` / `EmptyStatePanel`，错误状态需要提供明确图标、说明和可选重试按钮。
 - **Kotlin 配置:** AGP 9 已内置 Android Kotlin 支持，app 模块不再应用 `org.jetbrains.kotlin.android` 插件；Compose 编译仍使用 `org.jetbrains.kotlin.plugin.compose`。
 - **播放器:** 通过 `Media3PlayerFactory` 创建，默认启用 `EXTENSION_RENDERER_MODE_PREFER`；播放页关闭 Media3 默认控制器，使用 Compose OSD 管理 TV 操作。
 - **FFmpeg 扩展:** Media3 FFmpeg 扩展未发布到 Google Maven，需自行构建 AAR 放入 `app/libs/`。
@@ -43,3 +45,4 @@
 - **本机 JDK:** `C:\Users\MyPC\.jdks\corretto-17.0.16` 已验证可作为 `JAVA_HOME`，Gradle Launcher JVM 为 17.0.16。
 - **Android SDK:** 当前项目通过 `local.properties` 指向 `C:\Users\MyPC\AppData\Local\Android\Sdk`；已安装 `android-36.1`、Build Tools `36.0.0/36.1.0/37.0.0` 和 Platform Tools。
 - **验证命令:** `.\gradlew.bat :app:testDebugUnitTest`、`.\gradlew.bat :app:assembleDebug`。
+- **本机执行提示:** 若 Gradle 报 JVM 版本不足，先设置 `JAVA_HOME=C:\Users\MyPC\.jdks\corretto-17.0.16` 并将其 `bin` 放入 `PATH` 后重试。
