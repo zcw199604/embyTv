@@ -6,8 +6,25 @@
 ## [Unreleased]
 
 ### 计划中
-- **[Phase 2 - v0.4.0]** 功能增强：搜索历史、骨架屏加载、长列表快速导航、组件库重构
 - **[Phase 3 - v0.5.0]** 架构优化：完整组件库、多主题支持、高级播放器功能、可访问性完善
+
+## [0.4.0] - 2026-05-29
+
+### 新增
+- 新增搜索历史持久化，使用 DataStore Preferences 保存最近 20 条搜索记录，支持去重、点击复搜、单条删除和清空全部。
+- 新增加载骨架屏组件，覆盖首页 Dashboard、媒体库列表、搜索、收藏、发现、发现入口、详情页和季内 Episode 列表等主要加载态。
+- 新增媒体库长列表字母索引侧边栏和滚动位置指示器，媒体库资源数量达到阈值时可按首字母快速定位。
+
+### 变更
+- 搜索成功后自动记录关键词和结果数量；清空搜索或关闭搜索页时保留历史记录。
+- `Modifier.shimmerEffect()` 从空实现改为 1.2 秒循环渐变动画，用于统一骨架屏视觉反馈。
+- 应用版本提升至 `0.4.0`，`versionCode` 提升至 `5`。
+
+### 验证
+- `.\gradlew.bat :app:testDebugUnitTest` 通过。
+- `.\gradlew.bat :app:assembleDebug` 通过。
+- `git diff --check` 通过（仅存在仓库既有 LF/CRLF 提示）。
+- 安全扫描未发现新增明文 token、secret、password 或危险 `eval/exec` 模式。
 
 ### 新增
 - 新增搜索页，支持按关键词查询 Movie、Series、Episode、BoxSet 和 Playlist，并以 `Items` 为准展示结果。

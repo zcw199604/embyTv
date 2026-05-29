@@ -56,6 +56,15 @@ Repository 请求 Emby 时：
 - 调用 `Users/{userId}/Items?SearchTerm=...`，搜索 Movie、Series、Episode、BoxSet 和 Playlist。
 - 搜索结果以 `Items` 为准，不仅依赖 `TotalRecordCount`。
 - UI 层搜索 debounce 和网络请求处于同一个可取消 Job；旧关键词返回时会按当前 query 校验，不能覆盖新关键词状态。
+- 搜索成功后，ViewModel 将规范化后的关键词和结果数量写入 `SearchHistoryStore`。
+
+#### 场景: 搜索历史本地存储
+用户完成搜索后：
+- `SearchHistoryStore` 使用 DataStore Preferences 持久化搜索历史 JSON。
+- `SearchHistoryItem` 记录 `query`、`timestamp` 和 `resultCount`。
+- 空关键词不会写入历史；相同关键词去重并保留最新一次搜索。
+- 历史记录最多保存 20 条，按最新搜索倒序提供给 UI。
+- 支持按 query 删除单条历史，或清空全部历史。
 
 #### 场景: 发现页
 用户进入合集、播放列表、类型或演员页后：
@@ -121,13 +130,16 @@ Repository 请求 Emby 时：
 见 [API 手册](../api.md)。
 
 ## 数据模型
-见 [数据模型](../data.md)。新增 `DiscoveryKind`、`DiscoveryEntrySummary`、`EmbyDiscoveryContent`、`DiscoveryEntryItems`、`EmbySearchResults`、`PlaybackQueue`、`PlayerTrackOption` 和 `SavedEmbyCredentialList`。
+见 [数据模型](../data.md)。新增 `DiscoveryKind`、`DiscoveryEntrySummary`、`EmbyDiscoveryContent`、`DiscoveryEntryItems`、`EmbySearchResults`、`SearchHistoryItem`、`SearchHistoryStore`、`PlaybackQueue`、`PlayerTrackOption` 和 `SavedEmbyCredentialList`。
 
 ## 依赖
 - core.network
 - domain
+- AndroidX DataStore Preferences
+- Kotlinx Serialization JSON
 
 ## 变更历史
+- [202605291529_ui_interaction_optimization_phase2](../../history/2026-05/202605291529_ui_interaction_optimization_phase2/) - 新增搜索历史 DataStore 持久化、去重和数量上限规则。
 - [202605291035_emby_tv_feature_completion](../../history/2026-05/202605291035_emby_tv_feature_completion/) - 新增搜索、发现页、用户态写操作、播放队列和多凭证列表。
 - [202605291303_emby_review_issue_fixes](../../history/2026-05/202605291303_emby_review_issue_fixes/) - 修复认证图片请求、搜索取消、危险操作确认、播放上报和版本号来源。
 - [202605281948_performance_optimization](../../history/2026-05/202605281948_performance_optimization/) - 优化首页 Dashboard 受控并发、Emby API service 复用和图片尺寸化。

@@ -11,6 +11,7 @@
 - **弹幕:** com.kuaishou:akdanmaku 1.0.3
 - **网络:** Retrofit 3.0.0 / OkHttp 5.3.2
 - **并发:** Kotlin Coroutines 1.11.0 / Flow
+- **本地状态:** AndroidX DataStore Preferences 1.2.0 / Kotlinx Serialization JSON 1.10.0
 
 ---
 
@@ -21,13 +22,16 @@
 - **图片加载:** Compose 网络图片统一使用 Coil Compose；媒体图片缺失或加载失败时必须提供稳定占位。
 - **TV 视觉:** 核心页面采用 Cinematic Glass 深色玻璃拟态；焦点态使用 Emby Green 到强调黄的渐变边框、200ms 动画和 8dp 阴影，并保留大屏安全区。
 - **状态面板:** 加载失败和空数据场景优先使用 `ErrorStatePanel` / `EmptyStatePanel`，错误状态需要提供明确图标、说明和可选重试按钮。
+- **加载体验:** 主要内容加载态优先使用骨架屏组件，骨架尺寸应贴近实际卡片、列表或详情结构。
+- **搜索体验:** 搜索成功后保存最近 20 条历史记录，搜索页空关键词时显示历史记录，支持点击复搜、单条删除和清空。
+- **长列表导航:** 媒体库资源数量较多时显示字母索引和滚动位置指示器，索引仅对存在内容的首字母启用。
 - **Kotlin 配置:** AGP 9 已内置 Android Kotlin 支持，app 模块不再应用 `org.jetbrains.kotlin.android` 插件；Compose 编译仍使用 `org.jetbrains.kotlin.plugin.compose`。
 - **播放器:** 通过 `Media3PlayerFactory` 创建，默认启用 `EXTENSION_RENDERER_MODE_PREFER`；播放页关闭 Media3 默认控制器，使用 Compose OSD 管理 TV 操作。
 - **FFmpeg 扩展:** Media3 FFmpeg 扩展未发布到 Google Maven，需自行构建 AAR 放入 `app/libs/`。
 - **弹幕:** AkDanmaku 通过 `AkDanmakuBridge` 与领域模型隔离。
 - **服务器配置:** TV 端使用结构化字段生成 Emby `baseUrl`；手机扫码同步通过 TV 本机临时 HTTP 服务完成。
 - **凭证:** Emby 用户名和密码只用于 `/Users/AuthenticateByName`；本地保存 `accessToken`、`userId`、`serverId`、`serverUrl`、`deviceId`、`username` 展示字段和保存时间，不保存密码。
-- **新增依赖:** ZXing Core 3.5.4 生成二维码，NanoHTTPD 2.3.1 提供临时手机同步页，AndroidX Security Crypto 1.1.0 保存访问凭证。
+- **新增依赖:** ZXing Core 3.5.4 生成二维码，NanoHTTPD 2.3.1 提供临时手机同步页，AndroidX Security Crypto 1.1.0 保存访问凭证，DataStore Preferences 1.2.0 + Kotlinx Serialization JSON 1.10.0 保存搜索历史。
 
 ---
 

@@ -19,7 +19,10 @@ fun EmbyTvApp(container: AppContainer) {
     var playbackSource by remember { mutableStateOf<PlaybackSource?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val homeViewModel: HomeViewModel = viewModel(
-        factory = HomeViewModel.Factory(container.embyRepository),
+        factory = HomeViewModel.Factory(
+            repository = container.embyRepository,
+            searchHistoryStore = container.searchHistoryStore,
+        ),
     )
 
     val selectedPlaybackSource = playbackSource

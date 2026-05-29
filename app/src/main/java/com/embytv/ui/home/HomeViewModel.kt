@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.embytv.core.network.MobileSetupSyncServer
+import com.embytv.data.local.SearchHistoryItem
+import com.embytv.data.local.SearchHistoryStore
 import com.embytv.data.repository.EmbyRepository
 import com.embytv.domain.model.DiscoveryEntrySummary
 import com.embytv.domain.model.DiscoveryKind
@@ -26,6 +28,7 @@ import java.util.UUID
 
 class HomeViewModel(
     private val repository: EmbyRepository,
+    private val searchHistoryStore: SearchHistoryStore,
     private val syncServer: MobileSetupSyncServer = MobileSetupSyncServer(),
 ) : ViewModel() {
     private var deviceId: String = UUID.randomUUID().toString()
@@ -35,6 +38,7 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
+        observeSearchHistory()
         restoreSavedCredential()
     }
 
@@ -267,7 +271,23 @@ class HomeViewModel(
 
     fun clearSearch() {
         searchJob?.cancel()
-        _uiState.update { it.copy(search = SearchUiState(isOpen = true)) }
+        _uiState.update { it.copy(search = SearchUiState(isOpen = true, history = it.search.history)) }
+    }
+
+    fun selectSearchHistory(item: SearchHistoryItem) {
+        updateSearchQuery(item.query)
+    }
+
+    fun removeSearchHistory(query: String) {
+        viewModelScope.launch {
+            searchHistoryStore.removeHistory(query)
+        }
+    }
+
+    fun clearSearchHistory() {
+        viewModelScope.launch {
+            searchHistoryStore.clearHistory()
+        }
     }
 
     fun openDiscovery(kind: DiscoveryKind) {
@@ -543,6 +563,14 @@ class HomeViewModel(
         }
     }
 
+    private fun observeSearchHistory() {
+        viewModelScope.launch {
+            searchHistoryStore.historyFlow.collect { history ->
+                _uiState.update { it.copy(search = it.search.withHistory(history)) }
+            }
+        }
+    }
+
     private suspend fun loadDashboard(session: EmbySession): Result<Unit> {
         return repository.loadHomeDashboard(session, deviceId)
             .onSuccess { dashboard ->
@@ -657,6 +685,7 @@ class HomeViewModel(
         _uiState.update { it.copy(search = it.search.loading(normalized)) }
         repository.searchItems(session, deviceId, normalized)
             .onSuccess { results ->
+                searchHistoryStore.addHistory(normalized, results.items.size)
                 _uiState.update { current ->
                     if (current.search.query.trim() == normalized) {
                         current.copy(search = current.search.loaded(results))
@@ -727,11 +756,12 @@ class HomeViewModel(
 
     class Factory(
         private val repository: EmbyRepository,
+        private val searchHistoryStore: SearchHistoryStore,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(HomeViewModel::class.java))
-            return HomeViewModel(repository) as T
+            return HomeViewModel(repository, searchHistoryStore) as T
         }
     }
 }

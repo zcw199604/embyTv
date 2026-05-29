@@ -1,7 +1,7 @@
 # 数据模型
 
 ## 概述
-当前不引入本地数据库，数据以内存状态和加密 SharedPreferences 凭证存储传递。Emby 页面展示应优先来自真实 API，禁止继续使用假进度、硬编码媒体格式和样例播放数据作为正式页面内容。
+当前不引入本地数据库，数据以内存状态、加密 SharedPreferences 凭证存储和 DataStore Preferences 搜索历史传递。Emby 页面展示应优先来自真实 API，禁止继续使用假进度、硬编码媒体格式和样例播放数据作为正式页面内容。
 
 ---
 
@@ -125,6 +125,19 @@
 | resumeItems | List<MediaItemSummary> | `Users/{userId}/Items/Resume` | 继续观看 |
 | latestItems | List<MediaItemSummary> | `Users/{userId}/Items/Latest` | 最近入库兜底 |
 | libraryLatestSections | List<EmbyLibraryLatestSection> | 按每个媒体库 ParentId 查询最新资源 | 首页按媒体库展示最新内容 |
+
+### SearchHistoryItem
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| query | String | 用户搜索关键词 | 历史记录展示和点击复搜的关键词 |
+| timestamp | Long | 本机时间戳 | 最近搜索排序依据 |
+| resultCount | Int | 搜索返回条目数量 | 历史记录辅助信息 |
+
+搜索历史存储规则:
+- `SearchHistoryStore` 使用 DataStore Preferences 保存 JSON 字符串。
+- 空关键词不保存。
+- 相同关键词去重并保留最新记录。
+- 最多保留 20 条历史记录。
 
 ### PlaybackDetails
 | 字段 | 类型 | 来源 | 说明 |

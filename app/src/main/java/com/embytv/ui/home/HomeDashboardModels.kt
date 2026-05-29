@@ -12,6 +12,7 @@ import com.embytv.domain.model.EmbySeasonEpisodes
 import com.embytv.domain.model.EmbySeasonSummary
 import com.embytv.domain.model.EmbySearchResults
 import com.embytv.domain.model.MediaItemSummary
+import com.embytv.data.local.SearchHistoryItem
 import java.util.Locale
 
 const val FAVORITES_NAVIGATION_ID = "favorites"
@@ -65,9 +66,10 @@ data class SearchUiState(
     val results: EmbySearchResults = EmbySearchResults(query = ""),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val history: List<SearchHistoryItem> = emptyList(),
 ) {
     fun open(): SearchUiState = copy(isOpen = true, errorMessage = null)
-    fun close(): SearchUiState = SearchUiState()
+    fun close(): SearchUiState = SearchUiState(history = history)
     fun loading(query: String): SearchUiState = copy(
         isOpen = true,
         query = query,
@@ -87,6 +89,8 @@ data class SearchUiState(
         isLoading = false,
         errorMessage = message,
     )
+
+    fun withHistory(history: List<SearchHistoryItem>): SearchUiState = copy(history = history)
 }
 
 data class DiscoveryContentUiState(

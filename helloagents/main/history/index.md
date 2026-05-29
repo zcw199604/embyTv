@@ -8,6 +8,7 @@
 
 | 时间戳 | 功能名称 | 类型 | 状态 | 方案包路径 |
 |--------|----------|------|------|------------|
+| 202605291529 | ui_interaction_optimization_phase2 | 优化 | ✅已完成 | [202605291529_ui_interaction_optimization_phase2](2026-05/202605291529_ui_interaction_optimization_phase2/) |
 | 202605291416 | ui_interaction_optimization_phase1 | 优化 | ✅已完成 | [202605291416_ui_interaction_optimization_phase1](2026-05/202605291416_ui_interaction_optimization_phase1/) |
 | 202605291303 | emby_review_issue_fixes | 修复 | ✅已完成 | [202605291303_emby_review_issue_fixes](2026-05/202605291303_emby_review_issue_fixes/) |
 | 202605291035 | emby_tv_feature_completion | 功能 | ✅已完成 | [202605291035_emby_tv_feature_completion](2026-05/202605291035_emby_tv_feature_completion/) |
@@ -31,6 +32,7 @@
 
 ### 2026-05
 
+- [202605291529_ui_interaction_optimization_phase2](2026-05/202605291529_ui_interaction_optimization_phase2/) - 完成 Phase 2 UI 体验增强：搜索历史、加载骨架屏、媒体库字母索引和版本 0.4.0。
 - [202605291416_ui_interaction_optimization_phase1](2026-05/202605291416_ui_interaction_optimization_phase1/) - 完成 Phase 1 UI/交互体验优化：图片加载 crossfade 和占位、焦点渐变边框、状态面板、播放器缓冲进度和版本 0.3.0。
 - [202605291303_emby_review_issue_fixes](2026-05/202605291303_emby_review_issue_fixes/) - 修复播放切集上报、认证图片加载、搜索取消、危险操作确认和版本号一致性问题。
 - [202605291035_emby_tv_feature_completion](2026-05/202605291035_emby_tv_feature_completion/) - 补齐搜索、发现页、用户态写操作、播放队列、音字幕切换和多凭证列表基础能力。

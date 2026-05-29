@@ -3,6 +3,7 @@ package com.embytv.ui.home
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,10 +20,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -41,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -55,7 +60,9 @@ import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.PlaybackSource
 import com.embytv.domain.model.SavedEmbyCredential
 import com.embytv.BuildConfig
+import com.embytv.data.local.SearchHistoryItem
 import com.embytv.ui.components.GlassPanel
+import com.embytv.ui.components.FocusableGlassSurface
 import com.embytv.ui.components.LibraryCard
 import com.embytv.ui.components.LocalEmbyImageAuthorizationHeader
 import com.embytv.ui.components.MediaPosterCard
@@ -65,6 +72,12 @@ import com.embytv.ui.components.PrimaryTvButton
 import com.embytv.ui.components.RemoteHint
 import com.embytv.ui.components.RoundIconButton
 import com.embytv.ui.components.TopChromeBar
+import com.embytv.ui.components.loading.DetailSkeleton
+import com.embytv.ui.components.loading.MediaGridSkeleton
+import com.embytv.ui.components.loading.MediaListSkeleton
+import com.embytv.ui.components.navigation.AlphabetIndexBar
+import com.embytv.ui.components.navigation.ScrollPositionIndicator
+import com.embytv.ui.components.navigation.findIndexByLetter
 import com.embytv.ui.components.panels.EmptyStatePanel
 import com.embytv.ui.components.panels.ErrorStatePanel
 import com.embytv.ui.components.panels.ErrorType
@@ -116,6 +129,9 @@ fun HomeScreen(
                 onSearchQueryChange = viewModel::updateSearchQuery,
                 onRetrySearch = viewModel::retrySearch,
                 onClearSearch = viewModel::clearSearch,
+                onSelectSearchHistory = viewModel::selectSearchHistory,
+                onRemoveSearchHistory = viewModel::removeSearchHistory,
+                onClearSearchHistory = viewModel::clearSearchHistory,
                 onOpenDiscovery = viewModel::openDiscovery,
                 onBackFromDiscovery = viewModel::backFromDiscovery,
                 onCloseDiscovery = viewModel::closeDiscovery,
@@ -270,6 +286,9 @@ private fun HomeDashboardScreen(
     onSearchQueryChange: (String) -> Unit,
     onRetrySearch: () -> Unit,
     onClearSearch: () -> Unit,
+    onSelectSearchHistory: (SearchHistoryItem) -> Unit,
+    onRemoveSearchHistory: (String) -> Unit,
+    onClearSearchHistory: () -> Unit,
     onOpenDiscovery: (DiscoveryKind) -> Unit,
     onBackFromDiscovery: () -> Unit,
     onCloseDiscovery: () -> Unit,
@@ -347,6 +366,9 @@ private fun HomeDashboardScreen(
                 onQueryChange = onSearchQueryChange,
                 onRetry = onRetrySearch,
                 onClear = onClearSearch,
+                onSelectHistory = onSelectSearchHistory,
+                onRemoveHistory = onRemoveSearchHistory,
+                onClearHistory = onClearSearchHistory,
                 onPlay = onPlay,
                 onOpenMediaDetail = onOpenMediaDetail,
                 onUnsupported = { hintMessage = it },
@@ -425,14 +447,18 @@ private fun HomeDashboardScreen(
                 SectionHeader(title = "Media Libraries")
             }
             item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap)) {
-                    items(dashboard.libraries, key = { it.id }) { library ->
-                        LibraryCard(
-                            library = library,
-                            modifier = Modifier.fillParentMaxWidth(0.29f),
-                            onClick = { onOpenLibrary(library.id) },
-                            onUnsupported = { hintMessage = it },
-                        )
+                if (state.isLoading) {
+                    MediaListSkeleton(itemCount = 3)
+                } else {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap)) {
+                        items(dashboard.libraries, key = { it.id }) { library ->
+                            LibraryCard(
+                                library = library,
+                                modifier = Modifier.fillParentMaxWidth(0.29f),
+                                onClick = { onOpenLibrary(library.id) },
+                                onUnsupported = { hintMessage = it },
+                            )
+                        }
                     }
                 }
             }
@@ -442,7 +468,11 @@ private fun HomeDashboardScreen(
             }
             item {
                 if (mediaItems.isEmpty()) {
-                    EmptyDashboardPanel()
+                    if (state.isLoading) {
+                        MediaListSkeleton()
+                    } else {
+                        EmptyDashboardPanel()
+                    }
                 } else {
                     MediaRow(
                         cards = dashboard.continueWatching,
@@ -600,7 +630,7 @@ private fun FavoriteContentScreen(
         }
 
         when {
-            state.isLoading -> item { LibraryStatePanel(title = "正在加载收藏", subtitle = "正在从 Emby 获取你的收藏资源。") }
+            state.isLoading -> item { MediaGridSkeleton(rowCount = 2) }
             state.errorMessage != null -> item {
                 LibraryStatePanel(
                     title = "收藏加载失败",
@@ -671,83 +701,119 @@ private fun LibraryContentScreen(
     onUnsupported: (String) -> Unit,
 ) {
     val backFocusRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    var scrollIndicatorVisible by remember { mutableStateOf(false) }
     BackHandler(enabled = true, onBack = onBack)
     LaunchedEffect(state.selectedLibraryId) {
         backFocusRequester.requestFocus()
     }
+    LaunchedEffect(scrollIndicatorVisible) {
+        if (scrollIndicatorVisible) {
+            kotlinx.coroutines.delay(2_000)
+            scrollIndicatorVisible = false
+        }
+    }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(
-                horizontal = CinematicGlassSpacing.SafeAreaX,
-                vertical = CinematicGlassSpacing.SafeAreaY,
-            ),
-        verticalArrangement = Arrangement.spacedBy(28.dp),
-    ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    RoundIconButton(
-                        icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "返回首页",
-                        onClick = onBack,
-                        modifier = Modifier.focusRequester(backFocusRequester),
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = state.content?.library?.name ?: "媒体库",
-                            color = CinematicGlassColors.OnSurface,
-                            fontSize = 34.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    horizontal = CinematicGlassSpacing.SafeAreaX,
+                    vertical = CinematicGlassSpacing.SafeAreaY,
+                ),
+            verticalArrangement = Arrangement.spacedBy(28.dp),
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RoundIconButton(
+                            icon = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回首页",
+                            onClick = onBack,
+                            modifier = Modifier.focusRequester(backFocusRequester),
                         )
-                        Text(
-                            text = state.statusLabel(),
-                            color = CinematicGlassColors.OnSurfaceVariant,
-                            fontSize = 14.sp,
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = state.content?.library?.name ?: "媒体库",
+                                color = CinematicGlassColors.OnSurface,
+                                fontSize = 34.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = state.statusLabel(),
+                                color = CinematicGlassColors.OnSurfaceVariant,
+                                fontSize = 14.sp,
+                            )
+                        }
+                    }
+                    if (state.errorMessage != null) {
+                        PrimaryTvButton(
+                            text = "重试",
+                            icon = Icons.Filled.Refresh,
+                            onClick = onRetry,
                         )
                     }
                 }
-                if (state.errorMessage != null) {
-                    PrimaryTvButton(
-                        text = "重试",
-                        icon = Icons.Filled.Refresh,
-                        onClick = onRetry,
+            }
+
+            when {
+                state.isLoading -> item { MediaGridSkeleton(rowCount = 3) }
+                state.errorMessage != null -> item {
+                    LibraryStatePanel(
+                        title = "媒体库加载失败",
+                        subtitle = state.errorMessage,
+                        errorType = ErrorType.Network,
+                        onRetry = onRetry,
+                    )
+                }
+                state.content?.items.isNullOrEmpty() -> item { LibraryStatePanel(title = "该媒体库暂无可展示资源", subtitle = "当前列表只展示电影和剧集资源。", empty = true) }
+                else -> items(state.content.items.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
+                    LibraryGridRow(
+                        items = rowItems,
+                        onPlay = onPlay,
+                        onOpenMediaDetail = onOpenMediaDetail,
+                        onUnsupported = onUnsupported,
                     )
                 }
             }
-        }
 
-        when {
-            state.isLoading -> item { LibraryStatePanel(title = "正在加载媒体库", subtitle = "正在从 Emby 获取该媒体库的资源列表。") }
-            state.errorMessage != null -> item {
-                LibraryStatePanel(
-                    title = "媒体库加载失败",
-                    subtitle = state.errorMessage,
-                    errorType = ErrorType.Network,
-                    onRetry = onRetry,
-                )
-            }
-            state.content?.items.isNullOrEmpty() -> item { LibraryStatePanel(title = "该媒体库暂无可展示资源", subtitle = "当前列表只展示电影和剧集资源。", empty = true) }
-            else -> items(state.content.items.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
-                LibraryGridRow(
-                    items = rowItems,
-                    onPlay = onPlay,
-                    onOpenMediaDetail = onOpenMediaDetail,
-                    onUnsupported = onUnsupported,
-                )
+            item {
+                Spacer(modifier = Modifier.height(108.dp))
             }
         }
-
-        item {
-            Spacer(modifier = Modifier.height(108.dp))
+        val contentItems = state.content?.items.orEmpty()
+        if (contentItems.size >= 20) {
+            AlphabetIndexBar(
+                items = contentItems,
+                onIndexClick = { letter ->
+                    val itemIndex = contentItems.findIndexByLetter(letter)
+                    val rowIndex = (itemIndex / 5) + 1
+                    coroutineScope.launch {
+                        listState.animateScrollToItem(rowIndex)
+                        scrollIndicatorVisible = true
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 18.dp),
+            )
         }
+        ScrollPositionIndicator(
+            currentIndex = ((listState.firstVisibleItemIndex - 1).coerceAtLeast(0) * 5 + 1)
+                .coerceAtMost(contentItems.size.coerceAtLeast(1)),
+            totalCount = contentItems.size,
+            visible = scrollIndicatorVisible,
+            modifier = Modifier.align(Alignment.Center),
+        )
     }
 }
 
@@ -836,6 +902,9 @@ private fun SearchScreen(
     onQueryChange: (String) -> Unit,
     onRetry: () -> Unit,
     onClear: () -> Unit,
+    onSelectHistory: (SearchHistoryItem) -> Unit,
+    onRemoveHistory: (String) -> Unit,
+    onClearHistory: () -> Unit,
     onPlay: (MediaItemSummary) -> Unit,
     onOpenMediaDetail: (MediaItemSummary) -> Unit,
     onUnsupported: (String) -> Unit,
@@ -919,9 +988,25 @@ private fun SearchScreen(
             }
         }
 
+        if (state.query.isBlank() && state.history.isNotEmpty()) {
+            item {
+                SearchHistoryPanel(
+                    history = state.history,
+                    onHistoryClick = onSelectHistory,
+                    onHistoryRemove = onRemoveHistory,
+                    onClearAll = onClearHistory,
+                )
+            }
+        }
+
         when {
-            state.query.isBlank() -> item { LibraryStatePanel(title = "输入关键词开始搜索", subtitle = "可用遥控器选择输入框，也可以连接实体键盘输入。") }
-            state.isLoading -> item { LibraryStatePanel(title = "正在搜索", subtitle = "正在从 Emby 查询匹配资源。") }
+            state.query.isBlank() -> item {
+                LibraryStatePanel(
+                    title = if (state.history.isEmpty()) "输入关键词开始搜索" else "选择最近搜索或输入关键词",
+                    subtitle = "可用遥控器选择输入框，也可以连接实体键盘输入。",
+                )
+            }
+            state.isLoading -> item { MediaGridSkeleton(rowCount = 2) }
             state.errorMessage != null -> item { LibraryStatePanel(title = "搜索失败", subtitle = state.errorMessage) }
             state.results.items.isEmpty() -> item { LibraryStatePanel(title = "没有找到结果", subtitle = "换一个关键词再试。") }
             else -> items(state.results.items.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
@@ -936,6 +1021,97 @@ private fun SearchScreen(
         }
 
         item { Spacer(modifier = Modifier.height(108.dp)) }
+    }
+}
+
+@Composable
+private fun SearchHistoryPanel(
+    history: List<SearchHistoryItem>,
+    onHistoryClick: (SearchHistoryItem) -> Unit,
+    onHistoryRemove: (String) -> Unit,
+    onClearAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "最近搜索",
+                color = CinematicGlassColors.OnSurface,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            PrimaryTvButton(
+                text = "清空",
+                icon = Icons.Filled.Clear,
+                onClick = onClearAll,
+            )
+        }
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(history, key = { it.query }) { item ->
+                SearchHistoryChip(
+                    item = item,
+                    onClick = { onHistoryClick(item) },
+                    onRemove = { onHistoryRemove(item.query) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchHistoryChip(
+    item: SearchHistoryItem,
+    onClick: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    FocusableGlassSurface(
+        modifier = Modifier.onFocusChanged { focused = it.isFocused },
+        cornerRadius = 999.dp,
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.tv.material3.Icon(
+                imageVector = Icons.Filled.History,
+                contentDescription = null,
+                tint = CinematicGlassColors.OnSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = item.query,
+                color = CinematicGlassColors.OnSurface,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${item.resultCount} 个结果",
+                color = CinematicGlassColors.OnSurfaceVariant,
+                fontSize = 12.sp,
+                maxLines = 1,
+            )
+            if (focused) {
+                androidx.tv.material3.Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "删除搜索历史",
+                    tint = CinematicGlassColors.Error,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable(onClick = onRemove),
+                )
+            }
+        }
     }
 }
 
@@ -992,7 +1168,7 @@ private fun DiscoveryScreen(
             )
         }
         when {
-            state.isLoading -> item { LibraryStatePanel(title = "正在加载${DiscoveryMapper.title(kind)}", subtitle = "正在从 Emby 获取列表。") }
+            state.isLoading -> item { MediaGridSkeleton(rowCount = 2) }
             state.errorMessage != null -> item { LibraryStatePanel(title = "${DiscoveryMapper.title(kind)}加载失败", subtitle = state.errorMessage) }
             content?.entries.isNullOrEmpty() -> item { LibraryStatePanel(title = "暂无${DiscoveryMapper.title(kind)}", subtitle = "当前服务器没有返回可展示内容。") }
             else -> items(content.entries.chunked(5), key = { row -> row.joinToString { it.id } }) { rowEntries ->
@@ -1049,7 +1225,7 @@ private fun DiscoveryEntryItemsScreen(
             )
         }
         when {
-            state.isEntryLoading -> item { LibraryStatePanel(title = "正在加载资源", subtitle = "正在从 Emby 获取该入口下的媒体。") }
+            state.isEntryLoading -> item { MediaGridSkeleton(rowCount = 2) }
             state.entryErrorMessage != null -> item { LibraryStatePanel(title = "资源加载失败", subtitle = state.entryErrorMessage) }
             items?.items.isNullOrEmpty() -> item { LibraryStatePanel(title = "暂无资源", subtitle = "Emby 没有返回该入口下的媒体资源。") }
             else -> items(items.items.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
@@ -1191,7 +1367,7 @@ private fun MediaDetailScreen(
         }
 
         when {
-            state.isLoading -> item { LibraryStatePanel(title = "正在加载详情", subtitle = "正在从 Emby 获取媒体简介和人物信息。") }
+            state.isLoading -> item { DetailSkeleton() }
             state.errorMessage != null -> item { LibraryStatePanel(title = "详情加载失败", subtitle = state.errorMessage) }
             state.detail == null -> item { LibraryStatePanel(title = "暂无详情", subtitle = "Emby 没有返回该媒体的详情数据。") }
             else -> item {
@@ -1496,7 +1672,7 @@ private fun SeasonEpisodesScreen(
             )
         }
         when {
-            state.isSeasonLoading -> item { LibraryStatePanel(title = "正在加载剧集", subtitle = "正在从 Emby 获取该季的 Episode 列表。") }
+            state.isSeasonLoading -> item { MediaGridSkeleton(rowCount = 2) }
             state.seasonErrorMessage != null -> item { LibraryStatePanel(title = "剧集加载失败", subtitle = state.seasonErrorMessage) }
             episodes?.episodes.isNullOrEmpty() -> item { LibraryStatePanel(title = "暂无剧集", subtitle = "Emby 没有返回该季的 Episode 数据。") }
             else -> items(episodes.episodes.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->

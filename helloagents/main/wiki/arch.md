@@ -10,15 +10,18 @@ flowchart TD
     Home --> Sync["MobileSetupSyncServer"]
     Home --> Search["Search / Discovery UI State"]
     Home --> ImageAuth["LocalEmbyImageAuthorizationHeader"]
+    Home --> SearchHistory["SearchHistoryStore"]
     Sync --> Phone["手机浏览器配置页"]
     Home --> Store["EncryptedEmbyCredentialStore"]
     Repo --> Api["Retrofit EmbyApi"]
     Repo --> Url["EmbyStreamUrlBuilder"]
     ImageAuth --> Coil["Coil ImageRequest"]
+    SearchHistory --> DataStore["DataStore Preferences"]
     Repo --> StoreList["SavedEmbyCredentialList"]
     Player --> Media3["Media3PlayerFactory / ExoPlayer"]
     Player --> Danmaku["AkDanmakuBridge / DanmakuPlayer"]
     Core["DefaultAppContainer"] --> Repo
+    Core --> SearchHistory
     Core --> Media3
     Core --> Danmaku
 ```
@@ -29,7 +32,7 @@ flowchart TD
 - **网络:** Retrofit + OkHttp
 - **播放:** AndroidX Media3 + 本地 FFmpeg 扩展预留
 - **弹幕:** AkDanmaku
-- **状态管理:** ViewModel + StateFlow
+- **状态管理:** ViewModel + StateFlow + DataStore Preferences
 
 ## 核心流程
 ```mermaid
@@ -70,3 +73,4 @@ sequenceDiagram
 | ADR-015 | 多凭证采用兼容迁移而非清空旧凭证 | 2026-05-29 | ✅已采纳 | data/local, domain | [how.md](../history/2026-05/202605291035_emby_tv_feature_completion/how.md#adr-015-多凭证采用兼容迁移而非清空旧凭证) |
 | ADR-202605291303 | 图片认证优先使用请求 Header | 2026-05-29 | ✅已采纳 | ui/components, data/repository | [how.md](../history/2026-05/202605291303_emby_review_issue_fixes/how.md#adr-202605291303-图片认证优先使用请求-header) |
 | ADR-202605291304 | 播放切集上报由当前播放源驱动 | 2026-05-29 | ✅已采纳 | ui/player, data/repository | [how.md](../history/2026-05/202605291303_emby_review_issue_fixes/how.md#adr-202605291304-播放切集上报由当前播放源驱动) |
+| ADR-202605291529 | 搜索历史使用 DataStore Preferences 持久化 | 2026-05-29 | ✅已采纳 | data/local, ui/home | [how.md](../history/2026-05/202605291529_ui_interaction_optimization_phase2/how.md) |

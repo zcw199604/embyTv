@@ -88,8 +88,17 @@ Emby 登录成功后：
 - 进入 `LibraryContentScreen`，顶部展示返回按钮、媒体库名称和资源数量。
 - 电影库列表展示 Movie，剧集库列表展示 Series，未知库优先展示 Movie/Series。
 - 列表页提供加载、空状态、错误状态和遥控器可聚焦的重试按钮。
+- 当资源数量达到长列表阈值时，页面右侧显示字母索引侧边栏，只启用实际存在内容的首字母。
+- 用户点击字母索引后列表平滑滚动到对应首字母资源，并显示滚动位置指示器。
 - Back 或顶部返回按钮返回首页。
 - Movie/Series 卡片 OK 进入媒体详情页；Episode 卡片 OK 直接播放。
+
+#### 场景: 加载骨架屏
+主要页面加载内容时：
+- 首页媒体库、继续观看和按库最新资源加载时显示横向媒体卡片骨架。
+- 媒体库、搜索、收藏、发现和发现入口资源列表加载时显示与实际卡片网格接近的骨架布局。
+- 媒体详情页加载时显示详情页骨架，季内 Episode 加载时显示列表骨架。
+- 骨架屏使用 `Modifier.shimmerEffect()` 的 1.2 秒循环渐变动画，颜色遵循 Cinematic Glass 深色主题。
 
 #### 场景: 媒体详情页
 用户在首页、媒体库列表或收藏页对 Movie/Series 按 OK/Enter 后：
@@ -142,6 +151,9 @@ Emby 登录成功后：
 #### 场景: 搜索页
 搜索页打开后：
 - 搜索输入框获得初始焦点。
+- 当搜索关键词为空且存在历史记录时，显示“最近搜索”历史记录面板。
+- 历史记录以可聚焦 chip 展示，OK/Enter 可直接用该关键词再次搜索。
+- 历史记录 chip 聚焦时显示删除入口；搜索页同时提供清空全部历史入口。
 - 输入关键词后延迟触发 Emby 搜索，结果卡片展示图片、名字、类型和进度/角标。
 - Movie/Series 进入详情，Episode 直接播放，暂不支持打开的类型显示提示。
 - Back 返回首页。
@@ -178,7 +190,7 @@ OSD 显示后：
 无外部 API。
 
 ## 数据模型
-使用 `HomeUiState`、`SearchUiState`、`DiscoveryContentUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`EmbyFavoriteDashboard`、`EmbyMediaDetail`、`EmbySeasonSummary`、`EmbySeasonEpisodes`、`HomeDashboardUiModel`、`FavoriteContentUiState`、`MediaDetailUiState`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource`、`PlaybackDetails`、`PlaybackQueue` 和 `PlayerTrackOption`。
+使用 `HomeUiState`、`SearchUiState`、`SearchHistoryItem`、`DiscoveryContentUiState`、`EmbyHomeDashboard`、`EmbyLibraryContent`、`EmbyFavoriteDashboard`、`EmbyMediaDetail`、`EmbySeasonSummary`、`EmbySeasonEpisodes`、`HomeDashboardUiModel`、`FavoriteContentUiState`、`MediaDetailUiState`、`DrawerUiState`、`LibraryContentUiState`、`MediaCardUiModel`、`PlayerOsdState`、`PlaybackSource`、`PlaybackDetails`、`PlaybackQueue` 和 `PlayerTrackOption`。
 
 ## 依赖
 - data
@@ -188,8 +200,11 @@ OSD 显示后：
 - Coil Network OkHttp: Coil 3 加载 HTTP/HTTPS Emby 图片 URL 必须显式引入 `io.coil-kt.coil3:coil-network-okhttp`，否则 `AsyncImage` 无网络 fetcher，会统一显示占位图。
 - ZXing Core
 - NanoHTTPD
+- DataStore Preferences
+- Kotlinx Serialization JSON
 
 ## 变更历史
+- [202605291529_ui_interaction_optimization_phase2](../../history/2026-05/202605291529_ui_interaction_optimization_phase2/) - 完成 Phase 2 UI 体验增强：搜索历史、加载骨架屏、媒体库字母索引和版本 0.4.0。
 - [202605291416_ui_interaction_optimization_phase1](../../history/2026-05/202605291416_ui_interaction_optimization_phase1/) - 完成 Phase 1 UI/交互体验优化：图片 crossfade 与占位、焦点渐变边框、状态面板、播放器缓冲进度和版本 0.3.0。
 - [202605291035_emby_tv_feature_completion](../../history/2026-05/202605291035_emby_tv_feature_completion/) - 新增 TV 搜索页、发现页、详情页用户态动作、播放器音字幕面板和连续播放。
 - [202605291303_emby_review_issue_fixes](../../history/2026-05/202605291303_emby_review_issue_fixes/) - 修复审查发现的认证图片、搜索取消、危险操作确认、播放上报和版本号一致性问题。
