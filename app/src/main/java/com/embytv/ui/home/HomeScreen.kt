@@ -94,6 +94,8 @@ import com.embytv.ui.theme.FontScale
 import com.embytv.ui.utils.accessibilityLabel
 import kotlinx.coroutines.launch
 
+private const val LIBRARY_GRID_COLUMNS = 8
+
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
@@ -864,52 +866,24 @@ private fun LibraryContentScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    horizontal = CinematicGlassSpacing.SafeAreaX,
-                    vertical = CinematicGlassSpacing.SafeAreaY,
+                    horizontal = 28.dp,
+                    vertical = 34.dp,
                 ),
-            verticalArrangement = Arrangement.spacedBy(28.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                        RoundIconButton(
-                            icon = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回首页",
-                            onClick = onBack,
-                            modifier = Modifier.focusRequester(backFocusRequester),
-                        )
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = state.content?.library?.name ?: "媒体库",
-                                color = CinematicGlassColors.OnSurface,
-                                fontSize = 34.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = state.statusLabel(),
-                                color = CinematicGlassColors.OnSurfaceVariant,
-                                fontSize = 14.sp,
-                            )
-                        }
-                    }
-                    if (state.errorMessage != null) {
-                        PrimaryTvButton(
-                            text = "重试",
-                            icon = Icons.Filled.Refresh,
-                            onClick = onRetry,
-                        )
-                    }
-                }
+                LibraryReferenceTopBar(
+                    title = state.content?.library?.name ?: "媒体库",
+                    subtitle = state.statusLabel(),
+                    backFocusRequester = backFocusRequester,
+                    showRetry = state.errorMessage != null,
+                    onBack = onBack,
+                    onRetry = onRetry,
+                )
             }
 
             when {
-                state.isLoading -> item { MediaGridSkeleton(rowCount = 3) }
+                state.isLoading -> item { MediaGridSkeleton(rowCount = 2) }
                 state.errorMessage != null -> item {
                     LibraryStatePanel(
                         title = "媒体库加载失败",
@@ -919,7 +893,7 @@ private fun LibraryContentScreen(
                     )
                 }
                 state.content?.items.isNullOrEmpty() -> item { LibraryStatePanel(title = "该媒体库暂无可展示资源", subtitle = "当前列表只展示电影和剧集资源。", empty = true) }
-                else -> items(state.content.items.chunked(5), key = { row -> row.joinToString { it.id } }) { rowItems ->
+                else -> items(state.content.items.chunked(LIBRARY_GRID_COLUMNS), key = { row -> row.joinToString { it.id } }) { rowItems ->
                     LibraryGridRow(
                         items = rowItems,
                         onPlay = onPlay,
@@ -939,7 +913,7 @@ private fun LibraryContentScreen(
                 items = contentItems,
                 onIndexClick = { letter ->
                     val itemIndex = contentItems.findIndexByLetter(letter)
-                    val rowIndex = (itemIndex / 5) + 1
+                    val rowIndex = (itemIndex / LIBRARY_GRID_COLUMNS) + 1
                     coroutineScope.launch {
                         listState.animateScrollToItem(rowIndex)
                         scrollIndicatorVisible = true
@@ -951,12 +925,68 @@ private fun LibraryContentScreen(
             )
         }
         ScrollPositionIndicator(
-            currentIndex = ((listState.firstVisibleItemIndex - 1).coerceAtLeast(0) * 5 + 1)
+            currentIndex = ((listState.firstVisibleItemIndex - 1).coerceAtLeast(0) * LIBRARY_GRID_COLUMNS + 1)
                 .coerceAtMost(contentItems.size.coerceAtLeast(1)),
             totalCount = contentItems.size,
             visible = scrollIndicatorVisible,
             modifier = Modifier.align(Alignment.Center),
         )
+    }
+}
+
+@Composable
+private fun LibraryReferenceTopBar(
+    title: String,
+    subtitle: String,
+    backFocusRequester: FocusRequester,
+    showRetry: Boolean,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp),
+    ) {
+        Row(
+            modifier = Modifier.align(Alignment.CenterStart),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RoundIconButton(
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "返回首页",
+                onClick = onBack,
+                modifier = Modifier.focusRequester(backFocusRequester),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = title,
+                    color = CinematicGlassColors.OnSurface,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subtitle,
+                    color = CinematicGlassColors.OnSurfaceVariant,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (showRetry) {
+            PrimaryTvButton(
+                text = "重试",
+                icon = Icons.Filled.Refresh,
+                onClick = onRetry,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(128.dp),
+            )
+        }
     }
 }
 
@@ -969,11 +999,11 @@ private fun LibraryGridRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         items.forEach { item ->
             val card = HomeDashboardMapper.mapMediaItem(item)
-            MediaPosterCard(
+            CompactPosterTile(
                 card = card,
                 modifier = Modifier.weight(1f),
                 onClick = {
@@ -987,7 +1017,7 @@ private fun LibraryGridRow(
                 },
             )
         }
-        repeat(5 - items.size) {
+        repeat(LIBRARY_GRID_COLUMNS - items.size) {
             Spacer(modifier = Modifier.weight(1f))
         }
     }
