@@ -1,6 +1,7 @@
 package com.embytv.ui.home
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,16 +23,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.runtime.Composable
@@ -44,6 +50,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
@@ -59,11 +66,9 @@ import com.embytv.domain.model.DiscoveryKind
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.PlaybackSource
 import com.embytv.domain.model.SavedEmbyCredential
-import com.embytv.BuildConfig
 import com.embytv.data.local.SearchHistoryItem
 import com.embytv.ui.components.GlassPanel
 import com.embytv.ui.components.FocusableGlassSurface
-import com.embytv.ui.components.LibraryCard
 import com.embytv.ui.components.LocalEmbyImageAuthorizationHeader
 import com.embytv.ui.components.MediaPosterCard
 import com.embytv.ui.components.NavigationDrawerPanel
@@ -71,7 +76,6 @@ import com.embytv.ui.components.NetworkBackdropImage
 import com.embytv.ui.components.PrimaryTvButton
 import com.embytv.ui.components.RemoteHint
 import com.embytv.ui.components.RoundIconButton
-import com.embytv.ui.components.TopChromeBar
 import com.embytv.ui.components.loading.DetailSkeleton
 import com.embytv.ui.components.loading.MediaGridSkeleton
 import com.embytv.ui.components.loading.MediaListSkeleton
@@ -87,6 +91,7 @@ import com.embytv.ui.theme.CinematicGlassSpacing
 import com.embytv.ui.theme.AppLanguage
 import com.embytv.ui.theme.AppThemeId
 import com.embytv.ui.theme.FontScale
+import com.embytv.ui.utils.accessibilityLabel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -430,102 +435,88 @@ private fun HomeDashboardScreen(
             )
         } else {
             LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(
-                    horizontal = CinematicGlassSpacing.SafeAreaX,
-                    vertical = CinematicGlassSpacing.SafeAreaY,
-                ),
-            verticalArrangement = Arrangement.spacedBy(30.dp),
-        ) {
-            item {
-                TopChromeBar(
-                    title = "EMBY",
-                    subtitle = "Subtitles: ON · v${BuildConfig.VERSION_NAME}",
-                    onMenuClick = { drawerState = drawerState.open() },
-                    onSearchClick = onOpenSearch,
-                    menuFocusRequester = menuFocusRequester,
-                )
-            }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Welcome back",
-                        color = CinematicGlassColors.Primary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp,
-                    )
-                    Text(
-                        text = "Your Personal Home Cinema.",
-                        color = CinematicGlassColors.OnSurface,
-                        fontSize = 52.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        horizontal = 28.dp,
+                        vertical = 34.dp,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                item {
+                    HomeReferenceTopBar(
+                        title = "Emby",
+                        onMenuClick = { drawerState = drawerState.open() },
+                        onSearchClick = onOpenSearch,
+                        onFavoritesClick = onOpenFavorites,
+                        onSettingsClick = onOpenSettings,
+                        menuFocusRequester = menuFocusRequester,
                     )
                 }
-            }
 
-            item {
-                SectionHeader(title = "Media Libraries")
-            }
-            item {
-                if (state.isLoading) {
-                    MediaListSkeleton(itemCount = 3)
-                } else {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(CinematicGlassSpacing.CardGap)) {
-                        items(dashboard.libraries, key = { it.id }) { library ->
-                            LibraryCard(
-                                library = library,
-                                modifier = Modifier.fillParentMaxWidth(0.29f),
-                                onClick = { onOpenLibrary(library.id) },
-                                onUnsupported = { hintMessage = it },
-                            )
+                item {
+                    SectionHeader(title = "媒体库")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (state.isLoading) {
+                        MediaListSkeleton(itemCount = 3)
+                    } else {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(dashboard.libraries, key = { it.id }) { library ->
+                                HomeLibraryTile(
+                                    library = library,
+                                    modifier = Modifier.fillParentMaxWidth(0.145f),
+                                    onClick = { onOpenLibrary(library.id) },
+                                    onUnsupported = { hintMessage = it },
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            item {
-                SectionHeader(title = dashboard.mediaSectionTitle)
-            }
-            item {
-                if (mediaItems.isEmpty()) {
-                    if (state.isLoading) {
-                        MediaListSkeleton()
+                item {
+                    SectionHeader(title = dashboard.mediaSectionTitle.toHomeSectionTitle())
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (mediaItems.isEmpty()) {
+                        if (state.isLoading) {
+                            MediaListSkeleton()
+                        } else {
+                            EmptyDashboardPanel()
+                        }
                     } else {
-                        EmptyDashboardPanel()
+                        ContinueWatchingRow(
+                            cards = dashboard.continueWatching,
+                            mediaItems = mediaItems,
+                            onPlay = onPlay,
+                            onOpenMediaDetail = onOpenMediaDetail,
+                        )
                     }
-                } else {
-                    MediaRow(
-                        cards = dashboard.continueWatching,
-                        mediaItems = mediaItems,
+                }
+
+                items(dashboard.libraryLatestSections, key = { it.id }) { section ->
+                    val sourceItems = state.dashboard.libraryLatestSections
+                        .firstOrNull { it.library.id == section.id }
+                        ?.items
+                        .orEmpty()
+                    SectionHeader(
+                        title = section.title.toHomeLibrarySectionTitle(),
+                        actionLabel = "更多",
+                        onAction = { onOpenLibrary(section.id) },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    PosterShelfRow(
+                        cards = section.items,
+                        mediaItems = section.items.mapNotNull { card ->
+                            sourceItems.firstOrNull { it.id == card.id }
+                        },
                         onPlay = onPlay,
                         onOpenMediaDetail = onOpenMediaDetail,
                     )
                 }
-            }
 
-            items(dashboard.libraryLatestSections, key = { it.id }) { section ->
-                SectionHeader(title = section.title)
-                MediaRow(
-                    cards = section.items,
-                    mediaItems = section.items.mapNotNull { card ->
-                        state.dashboard.libraryLatestSections
-                            .firstOrNull { it.library.id == section.id }
-                            ?.items
-                            ?.firstOrNull { it.id == card.id }
-                    },
-                    onPlay = onPlay,
-                    onOpenMediaDetail = onOpenMediaDetail,
-                )
+                item {
+                    Box(modifier = Modifier.padding(bottom = 108.dp))
+                }
             }
-
-            item {
-                Box(modifier = Modifier.padding(bottom = 108.dp))
-            }
-        }
         }
         MiniPlayerBar(modifier = Modifier.align(Alignment.BottomCenter))
         RemoteHint(
@@ -1444,6 +1435,326 @@ private fun DiscoveryContentUiState.discoveryEntryStatusLabel(): String = when {
 }
 
 @Composable
+private fun HomeReferenceTopBar(
+    title: String,
+    onMenuClick: () -> Unit,
+    onSearchClick: () -> Unit,
+    onFavoritesClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    menuFocusRequester: FocusRequester,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp),
+    ) {
+        Row(
+            modifier = Modifier.align(Alignment.CenterStart),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RoundIconButton(
+                icon = Icons.Filled.Menu,
+                contentDescription = "打开导航",
+                onClick = onMenuClick,
+                modifier = Modifier.focusRequester(menuFocusRequester),
+            )
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(CinematicGlassColors.SurfaceHigh)
+                    .border(1.dp, Color.White.copy(alpha = 0.16f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.tv.material3.Icon(
+                    imageVector = Icons.Filled.Tv,
+                    contentDescription = null,
+                    tint = CinematicGlassColors.OnSurface,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+        Text(
+            text = title,
+            color = CinematicGlassColors.OnSurfaceVariant,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.Center),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RoundIconButton(Icons.Filled.Search, "搜索", onSearchClick)
+            RoundIconButton(Icons.Filled.Star, "收藏", onFavoritesClick)
+            RoundIconButton(Icons.Filled.Settings, "设置", onSettingsClick)
+        }
+    }
+}
+
+@Composable
+private fun HomeLibraryTile(
+    library: LibrarySummaryUiModel,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    onUnsupported: (String) -> Unit,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FocusableGlassSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .accessibilityLabel(label = library.title, state = library.countLabel),
+            cornerRadius = 8.dp,
+            enabled = library.enabled,
+            disabledReason = library.disabledReason,
+            onClick = onClick,
+            onDisabledClick = onUnsupported,
+        ) { focused ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                NetworkBackdropImage(
+                    imageUrl = library.imageUrl,
+                    contentDescription = library.title,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = if (focused) 0.45f else 0.28f),
+                                ),
+                            ),
+                        ),
+                )
+            }
+        }
+        Text(
+            text = library.title,
+            color = CinematicGlassColors.OnSurface,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun ContinueWatchingRow(
+    cards: List<MediaCardUiModel>,
+    mediaItems: List<MediaItemSummary>,
+    onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(mediaItems, key = { it.id }) { item ->
+            val card = cards.firstOrNull { it.id == item.id } ?: return@items
+            ContinueWatchingTile(
+                card = card,
+                modifier = Modifier.fillParentMaxWidth(0.185f),
+                onClick = {
+                    if (item.opensDetail()) {
+                        onOpenMediaDetail(item)
+                    } else {
+                        onPlay(item)
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ContinueWatchingTile(
+    card: MediaCardUiModel,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        FocusableGlassSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .accessibilityLabel(label = card.title, state = card.subtitle),
+            cornerRadius = 8.dp,
+            onClick = onClick,
+        ) { focused ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                NetworkBackdropImage(
+                    imageUrl = card.imageUrl,
+                    contentDescription = card.title,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = if (focused) 0.32f else 0.18f),
+                                ),
+                            ),
+                        ),
+                )
+                card.remainingLabel()?.let { label ->
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(CinematicGlassColors.Primary.copy(alpha = 0.86f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = label,
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (card.progressFraction > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .background(Color.White.copy(alpha = 0.25f)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(card.progressFraction.coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .background(CinematicGlassColors.Primary),
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            text = card.title,
+            color = CinematicGlassColors.OnSurface,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = card.subtitle,
+            color = CinematicGlassColors.OnSurfaceVariant,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun PosterShelfRow(
+    cards: List<MediaCardUiModel>,
+    mediaItems: List<MediaItemSummary>,
+    onPlay: (MediaItemSummary) -> Unit,
+    onOpenMediaDetail: (MediaItemSummary) -> Unit,
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        items(mediaItems, key = { it.id }) { item ->
+            val card = cards.firstOrNull { it.id == item.id } ?: return@items
+            CompactPosterTile(
+                card = card,
+                modifier = Modifier.fillParentMaxWidth(0.102f),
+                onClick = {
+                    if (item.opensDetail()) {
+                        onOpenMediaDetail(item)
+                    } else {
+                        onPlay(item)
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactPosterTile(
+    card: MediaCardUiModel,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        FocusableGlassSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(2f / 3f)
+                .accessibilityLabel(label = card.title, state = card.subtitle),
+            cornerRadius = 8.dp,
+            onClick = onClick,
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                NetworkBackdropImage(
+                    imageUrl = card.imageUrl,
+                    contentDescription = card.title,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                card.cornerBadge?.takeIf { it.isNotBlank() }?.let { badge ->
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .clip(CircleShape)
+                            .background(CinematicGlassColors.Primary.copy(alpha = 0.9f))
+                            .size(30.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = badge,
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            text = card.title,
+            color = CinematicGlassColors.OnSurface,
+            fontSize = 16.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = card.subtitle,
+            color = CinematicGlassColors.OnSurfaceVariant,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
 private fun MediaRow(
     cards: List<MediaCardUiModel>,
     mediaItems: List<MediaItemSummary>,
@@ -1990,14 +2301,58 @@ private fun MediaItemSummary.opensDetail(): Boolean =
     type.equals("Movie", ignoreCase = true) || type.equals("Series", ignoreCase = true)
 
 @Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        color = CinematicGlassColors.OnSurface,
-        fontSize = 28.sp,
-        fontWeight = FontWeight.SemiBold,
-    )
+private fun SectionHeader(
+    title: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            color = CinematicGlassColors.OnSurface,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (actionLabel != null && onAction != null) {
+            FocusableGlassSurface(
+                modifier = Modifier
+                    .width(92.dp)
+                    .height(44.dp),
+                cornerRadius = 999.dp,
+                onClick = onAction,
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Text(
+                        text = actionLabel,
+                        color = CinematicGlassColors.OnSurface,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
+        }
+    }
 }
+
+private fun String.toHomeSectionTitle(): String =
+    when (this) {
+        "Continue Watching" -> "继续观看"
+        else -> this
+    }
+
+private fun String.toHomeLibrarySectionTitle(): String =
+    removeSuffix(" · 最新入库")
+
+private fun MediaCardUiModel.remainingLabel(): String? =
+    progressFraction
+        .takeIf { it > 0f && it < 1f }
+        ?.let { "已看 ${(it.coerceIn(0f, 1f) * 100).toInt()}%" }
 
 @Composable
 private fun EmptyDashboardPanel() {
