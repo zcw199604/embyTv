@@ -33,7 +33,7 @@
 - **播放器增强:** 播放 OSD 支持 Media3 播放速度切换，当前支持 0.5x、0.75x、1x、1.25x、1.5x、2x；方向键 seek 支持预览缩略图，优先使用 Emby `Chapters` 章节图并以 Thumb/Backdrop/Primary 兜底；顶部展示 Episode 上下文、分辨率、编码和码率；外挂字幕展示规范化语言标签和 External 标记；Media3 事件通过 `PlayerPlaybackController` 映射为可测试 action/effect，OSD 位置以 250ms 受控节奏刷新。
 - **FFmpeg 扩展:** Media3 FFmpeg 扩展未发布到 Google Maven，需自行构建 AAR 放入 `app/libs/`。
 - **弹幕:** AkDanmaku 通过 `AkDanmakuBridge` 与领域模型隔离，播放器页面通过 `DanmakuOverlay` 应用透明度、字号和显示区域设置。
-- **服务器配置:** TV 端使用结构化字段生成 Emby `baseUrl`；手机扫码同步通过 TV 本机临时 HTTP 服务完成。
+- **服务器配置:** TV 端使用结构化字段生成 Emby `baseUrl`；默认按 Emby 局域网直连使用 HTTP `8096`，切换 HTTPS 时使用 `8920`，手机扫码同步通过 TV 本机临时 HTTP 服务完成。
 - **凭证:** Emby 用户名和密码只用于 `/Users/AuthenticateByName`；本地保存 `accessToken`、`userId`、`serverId`、`serverUrl`、`deviceId`、`username` 展示字段和保存时间，不保存密码。
 - **新增依赖:** ZXing Core 3.5.4 生成二维码，NanoHTTPD 2.3.1 提供临时手机同步页，AndroidX Security Crypto 1.1.0 保存访问凭证，DataStore Preferences 1.2.0 + Kotlinx Serialization JSON 1.10.0 保存搜索历史、播放历史和显示偏好。
 

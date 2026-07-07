@@ -153,13 +153,13 @@ private fun mobileSetupHtml(pairingToken: String): String =
             <div>
               <label>协议</label>
               <select name="protocol" id="protocol">
-                <option value="https">HTTPS</option>
                 <option value="http">HTTP</option>
+                <option value="https">HTTPS</option>
               </select>
             </div>
             <div>
               <label>端口</label>
-              <input name="port" id="port" inputmode="numeric" value="443" required />
+              <input name="port" id="port" inputmode="numeric" value="8096" required />
             </div>
           </div>
           <label>路径(可选)</label>
@@ -176,8 +176,8 @@ private fun mobileSetupHtml(pairingToken: String): String =
         const protocol = document.getElementById('protocol');
         const port = document.getElementById('port');
         protocol.addEventListener('change', () => {
-          if (protocol.value === 'http' && (port.value === '' || port.value === '443')) port.value = '8096';
-          if (protocol.value === 'https' && (port.value === '' || port.value === '8096')) port.value = '443';
+          if (protocol.value === 'http' && (port.value === '' || port.value === '8920')) port.value = '8096';
+          if (protocol.value === 'https' && (port.value === '' || port.value === '8096')) port.value = '8920';
         });
         document.getElementById('form').addEventListener('submit', async (event) => {
           event.preventDefault();

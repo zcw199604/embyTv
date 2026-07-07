@@ -1,8 +1,8 @@
 package com.embytv.domain.model
 
 enum class ServerProtocol(val scheme: String, val defaultPort: Int) {
-    Https("https", 443),
-    Http("http", 8096);
+    Http("http", 8096),
+    Https("https", 8920);
 
     companion object {
         fun from(value: String): ServerProtocol? =

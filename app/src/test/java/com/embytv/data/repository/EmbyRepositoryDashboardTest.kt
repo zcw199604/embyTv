@@ -15,6 +15,7 @@ import com.embytv.data.remote.dto.EmbyPlaybackStoppedRequest
 import com.embytv.data.remote.dto.EmbyUserDataUpdateRequest
 import com.embytv.data.remote.dto.EmbyUserDataDto
 import com.embytv.data.remote.dto.EmbyViewsResponse
+import com.embytv.domain.model.EmbyLibraryLatestSection
 import com.embytv.domain.model.EmbyLibrarySummary
 import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.MediaItemSummary
@@ -147,6 +148,18 @@ class EmbyRepositoryDashboardTest {
         assertEquals(3, series.unplayedItemCount)
         assertEquals("http://emby.test/Items/series-1/Images/Primary?tag=series-primary&MaxWidth=500&MaxHeight=750&Quality=85", series.imageUrl)
         assertEquals("http://emby.test/Items/series-1/Images/Backdrop/0?tag=series-backdrop&MaxWidth=960&MaxHeight=540&Quality=85", series.backdropImageUrl)
+    }
+
+    @Test
+    fun loadHomeDashboardKeepsCoreDashboardWhenLatestSectionFails() = runTest(dispatcher) {
+        api.latestItemsHandler = { error("Latest unavailable") }
+
+        val dashboard = repository.loadHomeDashboard(session, "device-1").getOrThrow()
+
+        assertEquals("library-1", dashboard.libraries.single().id)
+        assertEquals("resume-1", dashboard.resumeItems.single().id)
+        assertEquals(emptyList<MediaItemSummary>(), dashboard.latestItems)
+        assertEquals(emptyList<EmbyLibraryLatestSection>(), dashboard.libraryLatestSections)
     }
 
     @Test

@@ -136,11 +136,13 @@ class EmbyRepository(
                             val id = view.id ?: return@mapNotNull null
                             async {
                                 countSemaphore.withPermit {
-                                    val count = api.getItemsByParent(
-                                        authorization = authorization,
-                                        userId = session.userId,
-                                        parentId = id,
-                                    ).totalRecordCount
+                                    val count = runCatching {
+                                        api.getItemsByParent(
+                                            authorization = authorization,
+                                            userId = session.userId,
+                                            parentId = id,
+                                        ).totalRecordCount
+                                    }.getOrDefault(0)
                                     EmbyLibrarySummary(
                                         id = id,
                                         name = view.name.orEmpty(),
@@ -165,35 +167,43 @@ class EmbyRepository(
                         }.awaitAll()
                     }
                     val resumeDeferred = async {
-                        api.getResumeItems(
-                            authorization = authorization,
-                            userId = session.userId,
-                        ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                        runCatching {
+                            api.getResumeItems(
+                                authorization = authorization,
+                                userId = session.userId,
+                            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                        }.getOrDefault(emptyList())
                     }
                     val latestDeferred = async {
-                        api.getLatestItems(
-                            authorization = authorization,
-                            userId = session.userId,
-                        ).mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                        runCatching {
+                            api.getLatestItems(
+                                authorization = authorization,
+                                userId = session.userId,
+                            ).mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                        }.getOrDefault(emptyList())
                     }
                     val nextUpDeferred = async {
-                        api.getNextUp(
-                            authorization = authorization,
-                            userId = session.userId,
-                            limit = NEXT_UP_LIMIT,
-                        ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                        runCatching {
+                            api.getNextUp(
+                                authorization = authorization,
+                                userId = session.userId,
+                                limit = NEXT_UP_LIMIT,
+                            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                        }.getOrDefault(emptyList())
                     }
                     val libraries = librariesDeferred.await()
                     val libraryLatestSectionsDeferred = libraries.map { library ->
                         async {
                             latestSemaphore.withPermit {
-                                val items = loadLatestItemsForLibrary(
-                                    api = api,
-                                    authorization = authorization,
-                                    userId = session.userId,
-                                    serverUrl = session.serverUrl,
-                                    library = library,
-                                )
+                                val items = runCatching {
+                                    loadLatestItemsForLibrary(
+                                        api = api,
+                                        authorization = authorization,
+                                        userId = session.userId,
+                                        serverUrl = session.serverUrl,
+                                        library = library,
+                                    )
+                                }.getOrDefault(emptyList())
                                 if (items.isEmpty()) {
                                     null
                                 } else {

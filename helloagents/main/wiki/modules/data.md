@@ -6,7 +6,7 @@
 ## 模块概述
 - **职责:** Retrofit 接口定义、Emby 登录、首页 Dashboard 聚合、搜索、发现页、收藏聚合、用户态写操作、媒体详情/季/集读取、播放详情读取、播放队列和播放地址构造。
 - **状态:** 🚧开发中
-- **最后更新:** 2026-05-29
+- **最后更新:** 2026-07-07
 
 ## 规范
 
@@ -28,6 +28,7 @@ Emby 返回用户 ID 和访问令牌后：
 - 调用 `Users/{userId}/Items/Latest` 作为继续观看为空时的最近入库兜底。
 - 按媒体库调用 `Users/{userId}/Items/Latest?ParentId=...&Limit=8` 读取首页横排最新资源；tvshows 使用 `IncludeItemTypes=Episode&GroupItems=true` 并兜底聚合为 Series。
 - 媒体库数量统计、继续观看、最近入库和按库 latest 使用 Coroutines 受控并发加载，并发上限为 4，避免媒体库数量较多时完全串行阻塞首页。
+- 登录成功后，首页扩展分区接口失败只能局部降级为空；`Resume`、全局 `Latest`、`NextUp`、按库 latest 或媒体库数量统计失败不得把认证成功误判为登录失败。
 - 不在首页首屏全量拉取全部 Movie/Episode。
 - 小数量调用 `Shows/NextUp` 获取下一集候选；空结果不影响首页。
 

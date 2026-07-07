@@ -1,9 +1,9 @@
 package com.embytv.domain.model
 
 data class ServerConfigDraft(
-    val protocol: ServerProtocol = ServerProtocol.Https,
+    val protocol: ServerProtocol = ServerProtocol.Http,
     val host: String = "",
-    val port: String = ServerProtocol.Https.defaultPort.toString(),
+    val port: String = ServerProtocol.Http.defaultPort.toString(),
     val path: String = "",
     val username: String = "",
     val password: String = "",

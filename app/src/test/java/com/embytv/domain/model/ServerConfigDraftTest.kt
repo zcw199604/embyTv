@@ -8,18 +8,18 @@ import org.junit.Test
 class ServerConfigDraftTest {
     @Test
     fun protocolDefaultsUseEmbyPorts() {
-        assertEquals(443, ServerProtocol.Https.defaultPort)
+        assertEquals(8920, ServerProtocol.Https.defaultPort)
         assertEquals(8096, ServerProtocol.Http.defaultPort)
 
         val initial = ServerConfigDraft()
-        assertEquals(ServerProtocol.Https, initial.protocol)
-        assertEquals("443", initial.port)
+        assertEquals(ServerProtocol.Http, initial.protocol)
+        assertEquals("8096", initial.port)
 
-        val switchedToHttp = initial.withProtocol(ServerProtocol.Http)
-        assertEquals("8096", switchedToHttp.port)
+        val switchedToHttps = initial.withProtocol(ServerProtocol.Https)
+        assertEquals("8920", switchedToHttps.port)
 
-        val switchedBackToHttps = switchedToHttp.withProtocol(ServerProtocol.Https)
-        assertEquals("443", switchedBackToHttps.port)
+        val switchedBackToHttp = switchedToHttps.withProtocol(ServerProtocol.Http)
+        assertEquals("8096", switchedBackToHttp.port)
     }
 
     @Test
