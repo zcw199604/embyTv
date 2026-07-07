@@ -215,6 +215,47 @@ class EmbyRepositoryDashboardTest {
     }
 
     @Test
+    fun loadLibraryContentTreatsNullEmbyCollectionsAsEmpty() = runTest(dispatcher) {
+        api.itemsByParentHandler = {
+            EmbyItemsResponse(
+                items = listOf(
+                    EmbyItemDto(
+                        id = "item-with-null-collections",
+                        name = "空集合字段媒体",
+                        type = "Movie",
+                        overview = null,
+                        imageTags = null,
+                        backdropImageTags = null,
+                        parentBackdropImageTags = null,
+                        mediaSources = null,
+                        genres = null,
+                        studios = null,
+                        people = null,
+                        providerIds = null,
+                        chapters = null,
+                    ),
+                ),
+            )
+        }
+
+        val content = repository.loadLibraryContent(
+            session = session,
+            deviceId = "device-1",
+            library = EmbyLibrarySummary(
+                id = "movie-library",
+                name = "电影",
+                type = "CollectionFolder",
+                collectionType = "movies",
+                itemCount = 1,
+                imageUrl = null,
+            ),
+        ).getOrThrow()
+
+        assertEquals("item-with-null-collections", content.items.single().id)
+        assertEquals(emptyList<SeekThumbnail>(), content.items.single().seekThumbnails)
+    }
+
+    @Test
     fun createPlaybackSourceWithDetailsMapsPlaybackInfoStreams() = runTest(dispatcher) {
         val source = repository.createPlaybackSourceWithDetails(
             session = session,
@@ -435,7 +476,7 @@ private class FakeEmbyApi : EmbyApi {
                     sortBy = "DateCreated",
                     sortOrder = "Descending",
                 ),
-            ).items
+            ).items.orEmpty()
         }
     }
 

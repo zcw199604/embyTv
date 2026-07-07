@@ -115,7 +115,7 @@ class EmbyRepository(
                 api.getItems(
                     authorization = buildAuthorizationHeader(deviceId, session.accessToken),
                     userId = session.userId,
-                ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                ).items.orEmpty().mapNotNull { it.toMediaItemSummary(session.serverUrl) }
             }
         }
 
@@ -127,7 +127,7 @@ class EmbyRepository(
                 val views = api.getViews(
                     authorization = authorization,
                     userId = session.userId,
-                ).items
+                ).items.orEmpty()
                 val dashboardParts = coroutineScope {
                     val countSemaphore = Semaphore(DASHBOARD_REQUEST_PARALLELISM)
                     val latestSemaphore = Semaphore(DASHBOARD_REQUEST_PARALLELISM)
@@ -171,7 +171,7 @@ class EmbyRepository(
                             api.getResumeItems(
                                 authorization = authorization,
                                 userId = session.userId,
-                            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                            ).items.orEmpty().mapNotNull { it.toMediaItemSummary(session.serverUrl) }
                         }.getOrDefault(emptyList())
                     }
                     val latestDeferred = async {
@@ -188,7 +188,7 @@ class EmbyRepository(
                                 authorization = authorization,
                                 userId = session.userId,
                                 limit = NEXT_UP_LIMIT,
-                            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                            ).items.orEmpty().mapNotNull { it.toMediaItemSummary(session.serverUrl) }
                         }.getOrDefault(emptyList())
                     }
                     val libraries = librariesDeferred.await()
@@ -248,7 +248,7 @@ class EmbyRepository(
                 limit = limit,
                 sortBy = "SortName",
                 sortOrder = "Ascending",
-            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+            ).items.orEmpty().mapNotNull { it.toMediaItemSummary(session.serverUrl) }
             EmbyLibraryContent(library = library, items = items)
         }
     }
@@ -269,7 +269,7 @@ class EmbyRepository(
                     sortBy = "DateCreated",
                     sortOrder = "Descending",
                     enableUserData = true,
-                ).items
+            ).items.orEmpty()
                 EmbyFavoriteDashboard(
                     movies = items
                         .filter { it.type.equals("Movie", ignoreCase = true) }
@@ -304,7 +304,7 @@ class EmbyRepository(
                 sortOrder = "Ascending",
                 enableUserData = true,
                 searchTerm = normalizedQuery,
-            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+            ).items.orEmpty().mapNotNull { it.toMediaItemSummary(session.serverUrl) }
             com.embytv.domain.model.EmbySearchResults(query = normalizedQuery, items = items)
         }
     }
@@ -330,7 +330,7 @@ class EmbyRepository(
                     sortBy = "SortName",
                     sortOrder = "Ascending",
                     enableUserData = true,
-                ).items.mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
+                ).items.orEmpty().mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
                 DiscoveryKind.Playlists -> api.getItems(
                     authorization = authorization,
                     userId = session.userId,
@@ -342,17 +342,17 @@ class EmbyRepository(
                     sortBy = "SortName",
                     sortOrder = "Ascending",
                     enableUserData = true,
-                ).items.mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
+                ).items.orEmpty().mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
                 DiscoveryKind.Genres -> api.getGenres(
                     authorization = authorization,
                     userId = session.userId,
                     limit = limit,
-                ).items.mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
+                ).items.orEmpty().mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
                 DiscoveryKind.Persons -> api.getPersons(
                     authorization = authorization,
                     userId = session.userId,
                     limit = limit,
-                ).items.mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
+                ).items.orEmpty().mapNotNull { it.toDiscoveryEntry(session.serverUrl, kind) }
             }
             EmbyDiscoveryContent(kind = kind, entries = entries)
         }
@@ -379,13 +379,13 @@ class EmbyRepository(
                     sortBy = "SortName",
                     sortOrder = "Ascending",
                     fields = com.embytv.data.remote.EmbyApi.MEDIA_ITEM_FIELDS,
-                ).items
+                ).items.orEmpty()
                 DiscoveryKind.Playlists -> api.getPlaylistItems(
                     authorization = authorization,
                     playlistId = entry.id,
                     userId = session.userId,
                     limit = limit,
-                ).items
+                ).items.orEmpty()
                 DiscoveryKind.Genres -> api.getItems(
                     authorization = authorization,
                     userId = session.userId,
@@ -398,7 +398,7 @@ class EmbyRepository(
                     sortOrder = "Ascending",
                     enableUserData = true,
                     genreIds = entry.id,
-                ).items
+                ).items.orEmpty()
                 DiscoveryKind.Persons -> api.getItems(
                     authorization = authorization,
                     userId = session.userId,
@@ -411,7 +411,7 @@ class EmbyRepository(
                     sortOrder = "Ascending",
                     enableUserData = true,
                     personIds = entry.id,
-                ).items
+                ).items.orEmpty()
             }
             DiscoveryEntryItems(
                 entry = entry,
@@ -432,7 +432,7 @@ class EmbyRepository(
                 userId = session.userId,
                 seriesId = seriesId,
                 limit = NEXT_UP_LIMIT,
-            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+            ).items.orEmpty().mapNotNull { it.toMediaItemSummary(session.serverUrl) }
         }
     }
 
@@ -459,13 +459,13 @@ class EmbyRepository(
                     seriesId = summary.id,
                     userId = session.userId,
                     fields = com.embytv.data.remote.EmbyApi.SEASON_FIELDS,
-                ).items.mapNotNull { it.toSeasonSummary(session.serverUrl) }
+                ).items.orEmpty().mapNotNull { it.toSeasonSummary(session.serverUrl) }
             } else {
                 emptyList()
             }
             EmbyMediaDetail(
                 item = summary,
-                people = item.people.mapNotNull { person ->
+                people = item.people.orEmpty().mapNotNull { person ->
                     val name = person.name?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                     EmbyPersonSummary(
                         id = person.id,
@@ -474,13 +474,13 @@ class EmbyRepository(
                         type = person.type,
                     )
                 },
-                genres = item.genres.filter { it.isNotBlank() },
-                studios = item.studios.mapNotNull { it.name?.takeIf { name -> name.isNotBlank() } },
+                genres = item.genres.orEmpty().filter { it.isNotBlank() },
+                studios = item.studios.orEmpty().mapNotNull { it.name?.takeIf { name -> name.isNotBlank() } },
                 communityRating = item.communityRating,
                 officialRating = item.officialRating,
                 premiereDate = item.premiereDate,
                 criticRating = item.criticRating,
-                providerIds = item.providerIds.filterProviderIds(),
+                providerIds = item.providerIds.orEmpty().filterProviderIds(),
                 seasons = seasons,
             )
         }
@@ -527,7 +527,7 @@ class EmbyRepository(
                 userId = session.userId,
                 seasonId = season.id,
                 fields = com.embytv.data.remote.EmbyApi.SEASON_EPISODE_FIELDS,
-            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+            ).items.orEmpty().mapNotNull { it.toMediaItemSummary(session.serverUrl) }
             EmbySeasonEpisodes(season = season, episodes = episodes)
         }
     }
@@ -736,7 +736,7 @@ class EmbyRepository(
             played = userData?.played ?: false,
             playCount = userData?.playCount,
             playlistItemId = playlistItemId,
-            seekThumbnails = chapters.toSeekThumbnails(serverUrl, id),
+            seekThumbnails = chapters.orEmpty().toSeekThumbnails(serverUrl, id),
         )
     }
 
@@ -955,14 +955,14 @@ class EmbyRepository(
         return streamUrlBuilder.buildBackdropImageUrl(
             serverUrl = serverUrl,
             itemId = id,
-            tag = backdropImageTags.firstOrNull(),
+            tag = backdropImageTags.orEmpty().firstOrNull(),
             profile = EmbyImageProfile.Backdrop,
         ) ?: parentBackdropItemId?.takeIf { it.isNotBlank() }?.let { parentId ->
             streamUrlBuilder.buildBackdropImageUrl(
                 serverUrl = serverUrl,
                 itemId = parentId,
-                tag = parentBackdropImageTags.firstOrNull(),
-                allowUntagged = parentBackdropImageTags.isNotEmpty(),
+                tag = parentBackdropImageTags.orEmpty().firstOrNull(),
+                allowUntagged = parentBackdropImageTags.orEmpty().isNotEmpty(),
                 profile = EmbyImageProfile.Backdrop,
             )
         } ?: streamUrlBuilder.buildBackdropImageUrl(
@@ -1034,16 +1034,16 @@ class EmbyRepository(
     }
 
     private fun EmbyMediaSourceDto.videoStream(): EmbyMediaStreamDto? =
-        mediaStreams.firstOrNull { it.type.equals("Video", ignoreCase = true) }
+        mediaStreams.orEmpty().firstOrNull { it.type.equals("Video", ignoreCase = true) }
 
     private fun EmbyMediaSourceDto.audioStreams(): List<EmbyMediaStreamDto> =
-        mediaStreams.filter { it.type.equals("Audio", ignoreCase = true) }
+        mediaStreams.orEmpty().filter { it.type.equals("Audio", ignoreCase = true) }
 
     private fun EmbyMediaSourceDto.subtitleStreams(): List<EmbyMediaStreamDto> =
-        mediaStreams.filter { it.type.equals("Subtitle", ignoreCase = true) }
+        mediaStreams.orEmpty().filter { it.type.equals("Subtitle", ignoreCase = true) }
 
     private fun com.embytv.data.remote.dto.EmbyPlaybackInfoResponse.toPlaybackDetails(session: EmbySession): PlaybackDetails {
-        val source = mediaSources.firstOrNull()
+        val source = mediaSources.orEmpty().firstOrNull()
         return PlaybackDetails(
             playSessionId = playSessionId,
             mediaSourceId = source?.id,
@@ -1101,7 +1101,7 @@ class EmbyRepository(
                 userId = session.userId,
                 seasonId = seasonId,
                 fields = com.embytv.data.remote.EmbyApi.SEASON_EPISODE_FIELDS,
-            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+            ).items.orEmpty().mapNotNull { it.toMediaItemSummary(session.serverUrl) }
         }.getOrNull()
     }
 
@@ -1145,7 +1145,7 @@ class EmbyRepository(
                 userId = session.userId,
                 seriesId = seriesId,
                 limit = NEXT_UP_LIMIT,
-            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+            ).items.orEmpty().mapNotNull { it.toMediaItemSummary(session.serverUrl) }
                 .firstOrNull { it.id != item.id }
         }.getOrNull()
     }

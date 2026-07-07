@@ -3,12 +3,12 @@ package com.embytv.data.remote.dto
 import com.google.gson.annotations.SerializedName
 
 data class EmbyItemsResponse(
-    @SerializedName("Items") val items: List<EmbyItemDto> = emptyList(),
+    @SerializedName("Items") val items: List<EmbyItemDto>? = emptyList(),
     @SerializedName("TotalRecordCount") val totalRecordCount: Int = 0,
 )
 
 data class EmbyViewsResponse(
-    @SerializedName("Items") val items: List<EmbyItemDto> = emptyList(),
+    @SerializedName("Items") val items: List<EmbyItemDto>? = emptyList(),
     @SerializedName("TotalRecordCount") val totalRecordCount: Int = 0,
 )
 
@@ -22,14 +22,14 @@ data class EmbyItemDto(
     @SerializedName("Overview") val overview: String?,
     @SerializedName("PrimaryImageTag") val primaryImageTag: String? = null,
     @SerializedName("ImageTags") val imageTags: Map<String, String>?,
-    @SerializedName("BackdropImageTags") val backdropImageTags: List<String> = emptyList(),
+    @SerializedName("BackdropImageTags") val backdropImageTags: List<String>? = emptyList(),
     @SerializedName("ParentThumbItemId") val parentThumbItemId: String? = null,
     @SerializedName("ParentThumbImageTag") val parentThumbImageTag: String? = null,
     @SerializedName("ParentBackdropItemId") val parentBackdropItemId: String? = null,
-    @SerializedName("ParentBackdropImageTags") val parentBackdropImageTags: List<String> = emptyList(),
+    @SerializedName("ParentBackdropImageTags") val parentBackdropImageTags: List<String>? = emptyList(),
     @SerializedName("UserData") val userData: EmbyUserDataDto? = null,
     @SerializedName("RunTimeTicks") val runTimeTicks: Long? = null,
-    @SerializedName("MediaSources") val mediaSources: List<EmbyMediaSourceDto> = emptyList(),
+    @SerializedName("MediaSources") val mediaSources: List<EmbyMediaSourceDto>? = emptyList(),
     @SerializedName("ParentId") val parentId: String? = null,
     @SerializedName("SeriesId") val seriesId: String? = null,
     @SerializedName("SeriesName") val seriesName: String? = null,
@@ -38,17 +38,17 @@ data class EmbyItemDto(
     @SerializedName("ParentIndexNumber") val parentIndexNumber: Int? = null,
     @SerializedName("IndexNumber") val indexNumber: Int? = null,
     @SerializedName("ProductionYear") val productionYear: Int? = null,
-    @SerializedName("Genres") val genres: List<String> = emptyList(),
-    @SerializedName("Studios") val studios: List<EmbyStudioDto> = emptyList(),
-    @SerializedName("People") val people: List<EmbyPersonDto> = emptyList(),
+    @SerializedName("Genres") val genres: List<String>? = emptyList(),
+    @SerializedName("Studios") val studios: List<EmbyStudioDto>? = emptyList(),
+    @SerializedName("People") val people: List<EmbyPersonDto>? = emptyList(),
     @SerializedName("CommunityRating") val communityRating: Double? = null,
     @SerializedName("CriticRating") val criticRating: Double? = null,
     @SerializedName("OfficialRating") val officialRating: String? = null,
-    @SerializedName("ProviderIds") val providerIds: Map<String, String> = emptyMap(),
+    @SerializedName("ProviderIds") val providerIds: Map<String, String>? = emptyMap(),
     @SerializedName("PremiereDate") val premiereDate: String? = null,
     @SerializedName("DateCreated") val dateCreated: String? = null,
     @SerializedName("PlaylistItemId") val playlistItemId: String? = null,
-    @SerializedName("Chapters") val chapters: List<EmbyChapterInfoDto> = emptyList(),
+    @SerializedName("Chapters") val chapters: List<EmbyChapterInfoDto>? = emptyList(),
 )
 
 data class EmbyChapterInfoDto(
@@ -88,14 +88,14 @@ data class EmbyUserDataDto(
 
 data class EmbyPlaybackInfoResponse(
     @SerializedName("PlaySessionId") val playSessionId: String?,
-    @SerializedName("MediaSources") val mediaSources: List<EmbyMediaSourceDto> = emptyList(),
+    @SerializedName("MediaSources") val mediaSources: List<EmbyMediaSourceDto>? = emptyList(),
 )
 
 data class EmbyMediaSourceDto(
     @SerializedName("Id") val id: String?,
     @SerializedName("Container") val container: String?,
     @SerializedName("Bitrate") val bitrate: Int?,
-    @SerializedName("MediaStreams") val mediaStreams: List<EmbyMediaStreamDto> = emptyList(),
+    @SerializedName("MediaStreams") val mediaStreams: List<EmbyMediaStreamDto>? = emptyList(),
 )
 
 data class EmbyMediaStreamDto(
