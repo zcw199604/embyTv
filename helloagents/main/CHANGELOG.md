@@ -69,6 +69,7 @@
 - `PlayerMediaItemFactory.create` 构造的 Media3 `MediaItem` 现在写入 `PlaybackSource.itemId` 作为 `mediaId`，并把 `PlaybackSource.title` 写入 `MediaMetadata.title`，便于 Media3 回调、日志和后续会话集成稳定识别当前 Emby 条目。
 - Emby 服务器配置默认值改为更适合局域网直连的 HTTP `8096`，HTTPS 切换默认端口改为 `8920`；TV 表单和手机扫码同步页保持一致，避免用户名密码正确但请求打到错误协议/端口导致登录失败。
 - 首页 Dashboard 聚合在登录成功后对 `Resume`、`Latest`、`NextUp`、按库 latest 和媒体库数量统计做局部容错，单个扩展接口失败时对应分区降级为空，不再把已成功的 Emby 认证显示为连接失败。
+- TV 手动登录失败提示现在会显示 HTTP 状态、实际请求地址和实际提交用户名，并将 HTTP 401 明确标记为用户名或密码错误；路径输入占位文案改为留空，避免误认为存在默认路径。
 - 播放中详情 Overlay 状态新增当前播放项归属，`PlayerDetailOverlayLoadPolicy` 只用同一 `itemId` 的 loading、loaded 或 error 阻止重复请求；切换上一集/下一集后会重新加载当前媒体详情与 PlaybackInfo。
 - `PlayerOsdReducer` 现在会忽略不同 `itemId` 的详情 Overlay 成功/失败晚到结果，避免切集后旧请求覆盖当前媒体详情、技术标签或错误反馈。
 - 播放页 Emby 上报失败现在由 `PlayerScreen` 捕获并记录为 Debug 诊断日志，避免上报异常阻塞 Back 退出或播放器释放。

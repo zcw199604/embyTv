@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import java.io.IOException
 import java.util.UUID
 
 class HomeViewModel(
@@ -91,7 +93,7 @@ class HomeViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = error.message ?: "Emby 登录失败",
+                        errorMessage = loginErrorMessage(error, config),
                     )
                 }
             }
@@ -826,3 +828,16 @@ class HomeViewModel(
 
 private fun ServerConfigDraft.toServerConfigOrNull(deviceId: String) =
     runCatching { toServerConfig(deviceId = deviceId) }.getOrNull()
+
+internal fun loginErrorMessage(error: Throwable, config: com.embytv.domain.model.ServerConfig): String {
+    val endpoint = config.baseUrl.trimEnd('/')
+    val detail = when (error) {
+        is HttpException -> when (error.code()) {
+            401 -> "HTTP 401 用户名或密码错误"
+            else -> "HTTP ${error.code()} ${error.message()}".trim()
+        }
+        is IOException -> error.message?.takeIf { it.isNotBlank() } ?: "网络连接失败"
+        else -> error.message?.takeIf { it.isNotBlank() } ?: error::class.java.simpleName
+    }
+    return "Emby 登录失败：$detail。请求地址：$endpoint，用户名：${config.username}"
+}

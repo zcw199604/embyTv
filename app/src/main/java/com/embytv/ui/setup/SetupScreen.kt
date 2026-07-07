@@ -248,7 +248,7 @@ private fun ManualSetupPanel(
             TvSetupInputField(
                 label = "路径(可选, 无则留空)",
                 value = draft.path,
-                placeholder = "emby",
+                placeholder = "留空",
                 icon = Icons.Filled.Route,
                 imeAction = ImeAction.Next,
                 onValueChange = onServerPathChange,
