@@ -35,10 +35,24 @@ enum class FontScale(val storageValue: String, val displayName: String, val scal
     }
 }
 
+enum class AppLanguage(val storageValue: String, val displayName: String, val localeTag: String?) {
+    System("system", "跟随系统", null),
+    SimplifiedChinese("zh-CN", "简体中文", "zh-CN"),
+    English("en", "English", "en"),
+
+    ;
+
+    companion object {
+        fun fromStorageValue(value: String?): AppLanguage =
+            entries.firstOrNull { it.storageValue == value } ?: System
+    }
+}
+
 data class ThemePreferences(
     val themeId: AppThemeId = AppThemeId.CinematicGlass,
     val highContrast: Boolean = false,
     val fontScale: FontScale = FontScale.Normal,
+    val language: AppLanguage = AppLanguage.System,
 )
 
 data class EmbyColorScheme(

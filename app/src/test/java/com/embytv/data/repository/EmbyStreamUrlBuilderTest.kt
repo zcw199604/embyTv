@@ -76,4 +76,66 @@ class EmbyStreamUrlBuilderTest {
             ),
         )
     }
+
+    @Test
+    fun buildChapterImageUrl_usesChapterIndexAndTag() {
+        assertEquals(
+            "http://127.0.0.1:8096/Items/movie+1/Images/Chapter/3?tag=chapter-tag&MaxWidth=640&MaxHeight=360&Quality=85",
+            builder.buildChapterImageUrl(
+                serverUrl = "http://127.0.0.1:8096/",
+                itemId = "movie 1",
+                chapterIndex = 3,
+                tag = "chapter-tag",
+                profile = EmbyImageProfile.Thumb,
+            ),
+        )
+    }
+
+    @Test
+    fun buildSubtitleDeliveryUrl_normalizesRelativeUrlAndAddsToken() {
+        assertEquals(
+            "http://127.0.0.1:8096/Videos/movie+1/media-source/Subtitles/2/Stream.srt?api_key=token+value",
+            builder.buildSubtitleDeliveryUrl(
+                serverUrl = "http://127.0.0.1:8096/",
+                deliveryUrl = "/Videos/movie+1/media-source/Subtitles/2/Stream.srt",
+                accessToken = "token value",
+            ),
+        )
+    }
+
+    @Test
+    fun buildSubtitleDeliveryUrl_keepsAbsoluteUrlWithExistingToken() {
+        assertEquals(
+            "http://cdn.emby.test/subtitle.vtt?api_key=existing",
+            builder.buildSubtitleDeliveryUrl(
+                serverUrl = "http://127.0.0.1:8096/",
+                deliveryUrl = "http://cdn.emby.test/subtitle.vtt?api_key=existing",
+                accessToken = "token value",
+            ),
+        )
+    }
+
+    @Test
+    fun buildSubtitleDeliveryUrl_keepsAbsoluteUrlWithCaseInsensitiveExistingToken() {
+        assertEquals(
+            "http://cdn.emby.test/subtitle.vtt?API_KEY=existing",
+            builder.buildSubtitleDeliveryUrl(
+                serverUrl = "http://127.0.0.1:8096/",
+                deliveryUrl = "http://cdn.emby.test/subtitle.vtt?API_KEY=existing",
+                accessToken = "token value",
+            ),
+        )
+    }
+
+    @Test
+    fun buildSubtitleDeliveryUrl_doesNotTreatSimilarQueryParameterAsExistingToken() {
+        assertEquals(
+            "http://cdn.emby.test/subtitle.vtt?not_api_key=existing&api_key=token+value",
+            builder.buildSubtitleDeliveryUrl(
+                serverUrl = "http://127.0.0.1:8096/",
+                deliveryUrl = "http://cdn.emby.test/subtitle.vtt?not_api_key=existing",
+                accessToken = "token value",
+            ),
+        )
+    }
 }

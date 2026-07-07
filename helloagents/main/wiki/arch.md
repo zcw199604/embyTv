@@ -20,7 +20,19 @@ flowchart TD
     SearchHistory --> DataStore["DataStore Preferences"]
     ThemeStore --> DataStore
     Repo --> StoreList["SavedEmbyCredentialList"]
-    Player --> Media3["Media3PlayerFactory / ExoPlayer"]
+    Player --> Manager["PlayerManager / PlayerOsdState"]
+    Player --> RemotePolicy["PlayerRemoteKeyPolicy"]
+    RemotePolicy --> Manager
+    Player --> QueueNavPolicy["PlayerQueueNavigationPolicy"]
+    QueueNavPolicy --> Manager
+    Player --> AutoHidePolicy["PlayerOsdAutoHidePolicy"]
+    AutoHidePolicy --> Manager
+    Player --> PlaybackController["PlayerPlaybackController"]
+    PlaybackController --> Manager
+    Manager --> Media3["Media3PlayerFactory / ExoPlayer"]
+    Manager --> DetailOverlay["播放中详情 Overlay"]
+    Player --> DanmakuPolicy["DanmakuPlaybackPolicy"]
+    DanmakuPolicy --> Danmaku
     Player --> Danmaku["AkDanmakuBridge / DanmakuPlayer"]
     Core["DefaultAppContainer"] --> Repo
     Core --> SearchHistory
@@ -36,6 +48,7 @@ flowchart TD
 - **播放:** AndroidX Media3 + 本地 FFmpeg 扩展预留
 - **弹幕:** AkDanmaku
 - **状态管理:** ViewModel + StateFlow + DataStore Preferences
+- **播放交互:** `PlayerManager` + `PlayerOsdState` 管理 OSD、播放状态、seek 预览、弹幕设置和详情 Overlay；`PlayerRemoteKeyPolicy` 负责将 TV 遥控器按键转换为 OSD action、seek 或忽略命令；`PlayerQueueNavigationPolicy` 负责从 `PlaybackQueue` 派生上一集/下一集按钮可用性和禁用提示；`PlayerOsdAutoHidePolicy` 负责判断 5 秒自动隐藏是否应调度；`PlayerPlaybackController` 负责将 Media3 事件映射为 OSD action 与播放副作用；`DanmakuPlaybackPolicy` 负责将 OSD 弹幕状态和 seek 同步转换为可测试的 AkDanmaku 命令
 
 ## 核心流程
 ```mermaid

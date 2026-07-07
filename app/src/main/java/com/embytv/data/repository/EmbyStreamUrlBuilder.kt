@@ -60,6 +60,38 @@ class EmbyStreamUrlBuilder {
         }
     }
 
+    fun buildChapterImageUrl(
+        serverUrl: String,
+        itemId: String,
+        chapterIndex: Int,
+        tag: String?,
+        allowUntagged: Boolean = false,
+        profile: EmbyImageProfile? = null,
+    ): String? {
+        val base = serverUrl.trim().trimEnd('/')
+        val path = "$base/Items/${itemId.urlEncode()}/Images/Chapter/${chapterIndex.coerceAtLeast(0)}"
+        return when {
+            !tag.isNullOrBlank() -> appendImageProfile("$path?tag=${tag.urlEncode()}", profile)
+            allowUntagged -> appendImageProfile(path, profile)
+            else -> null
+        }
+    }
+
+    fun buildSubtitleDeliveryUrl(
+        serverUrl: String,
+        deliveryUrl: String?,
+        accessToken: String,
+    ): String? {
+        val rawUrl = deliveryUrl?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        val absoluteUrl = if (rawUrl.startsWith("http://", ignoreCase = true) || rawUrl.startsWith("https://", ignoreCase = true)) {
+            rawUrl
+        } else {
+            "${serverUrl.trim().trimEnd('/')}/${rawUrl.trimStart('/')}"
+        }
+        if (absoluteUrl.hasQueryParameter("api_key") || accessToken.isBlank()) return absoluteUrl
+        return absoluteUrl.appendQueryParameter("api_key", accessToken.urlEncode())
+    }
+
     private fun buildImageUrl(
         serverUrl: String,
         itemId: String,
@@ -86,3 +118,28 @@ class EmbyStreamUrlBuilder {
 
 private fun String.urlEncode(): String =
     URLEncoder.encode(this, StandardCharsets.UTF_8.name())
+
+private fun String.hasQueryParameter(name: String): Boolean {
+    val queryStart = indexOf('?')
+    if (queryStart < 0) return false
+    val fragmentStart = indexOf('#', startIndex = queryStart + 1).let { index ->
+        if (index >= 0) index else length
+    }
+    return substring(queryStart + 1, fragmentStart)
+        .split('&')
+        .any { rawParameter ->
+            rawParameter.substringBefore('=').equals(name, ignoreCase = true)
+        }
+}
+
+private fun String.appendQueryParameter(name: String, encodedValue: String): String {
+    val fragmentStart = indexOf('#')
+    val base = if (fragmentStart >= 0) substring(0, fragmentStart) else this
+    val fragment = if (fragmentStart >= 0) substring(fragmentStart) else ""
+    val separator = when {
+        '?' !in base -> "?"
+        base.endsWith("?") || base.endsWith("&") -> ""
+        else -> "&"
+    }
+    return "$base$separator$name=$encodedValue$fragment"
+}

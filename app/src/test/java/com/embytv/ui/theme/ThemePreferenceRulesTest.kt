@@ -26,6 +26,18 @@ class ThemePreferenceRulesTest {
     }
 
     @Test
+    fun invalidLanguageFallsBackToSystem() {
+        assertEquals(AppLanguage.System, AppLanguage.fromStorageValue("missing"))
+    }
+
+    @Test
+    fun languageExposesAndroidLocaleTagWhenNotSystem() {
+        assertEquals(null, AppLanguage.System.localeTag)
+        assertEquals("zh-CN", AppLanguage.SimplifiedChinese.localeTag)
+        assertEquals("en", AppLanguage.English.localeTag)
+    }
+
+    @Test
     fun highContrastOverridesThemeColorScheme() {
         val scheme = ThemePreferenceRules.resolveColorScheme(
             ThemePreferences(themeId = AppThemeId.EmbyClassic, highContrast = true),

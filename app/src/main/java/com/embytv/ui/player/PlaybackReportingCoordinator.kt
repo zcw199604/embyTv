@@ -7,9 +7,10 @@ sealed interface PlaybackReportEvent {
 }
 
 class PlaybackReportingCoordinator(
-    private val progressIntervalMs: Long = DEFAULT_PROGRESS_INTERVAL_MS,
+    progressIntervalMs: Long = DEFAULT_PROGRESS_INTERVAL_MS,
     private val onEvent: (PlaybackReportEvent) -> Unit,
 ) {
+    private val effectiveProgressIntervalMs = progressIntervalMs.takeIf { it > 0L } ?: DEFAULT_PROGRESS_INTERVAL_MS
     private var startedReported = false
     private var stoppedReported = false
     private var lastProgressPositionMs: Long? = null
@@ -25,27 +26,32 @@ class PlaybackReportingCoordinator(
     }
 
     fun onProgressTick(positionMs: Long, isPaused: Boolean) {
-        if (stoppedReported) return
+        if (!startedReported || stoppedReported) return
         val normalizedPosition = positionMs.coerceAtLeast(0L)
         val lastPosition = lastProgressPositionMs
-        if (lastPosition == null || normalizedPosition - lastPosition >= progressIntervalMs) {
+        if (lastPausedState != isPaused ||
+            lastPosition == null ||
+            normalizedPosition - lastPosition >= effectiveProgressIntervalMs
+        ) {
             reportProgress(normalizedPosition, isPaused)
         }
     }
 
     fun onPauseChanged(positionMs: Long, isPaused: Boolean) {
-        if (stoppedReported) return
+        if (!startedReported || stoppedReported) return
         if (lastPausedState == isPaused) return
         reportProgress(positionMs.coerceAtLeast(0L), isPaused)
     }
 
     fun onSeek(positionMs: Long, isPaused: Boolean) {
-        if (stoppedReported) return
-        reportProgress(positionMs.coerceAtLeast(0L), isPaused)
+        if (!startedReported || stoppedReported) return
+        val normalizedPosition = positionMs.coerceAtLeast(0L)
+        if (lastProgressPositionMs == normalizedPosition && lastPausedState == isPaused) return
+        reportProgress(normalizedPosition, isPaused)
     }
 
     fun onStopped(positionMs: Long) {
-        if (stoppedReported) return
+        if (!startedReported || stoppedReported) return
         stoppedReported = true
         onEvent(PlaybackReportEvent.Stopped(positionMs.coerceAtLeast(0L)))
     }

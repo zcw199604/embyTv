@@ -1,4 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Emby TV</string>
+    <string name="player_title_fallback">Emby Playback</string>
+    <string name="player_back">返回</string>
+    <string name="player_previous">上一集</string>
+    <string name="player_next">下一集</string>
+    <string name="player_no_previous">没有上一集</string>
+    <string name="player_no_next">没有下一集</string>
+    <string name="player_replay_10">快退 10 秒</string>
+    <string name="player_forward_10">快进 10 秒</string>
+    <string name="player_pause">暂停</string>
+    <string name="player_play">播放</string>
+    <string name="player_audio">音轨</string>
+    <string name="player_subtitles">字幕</string>
+    <string name="player_speed">速度</string>
+    <string name="player_danmaku">弹幕</string>
+    <string name="player_on">开</string>
+    <string name="player_off">关</string>
+    <string name="player_no_audio">没有可用音轨信息</string>
+    <string name="player_no_subtitles">当前媒体没有字幕</string>
+    <string name="player_direct_play">直接播放</string>
+    <string name="player_unknown_quality">未知画质</string>
+    <string name="player_disable_subtitles">关闭字幕</string>
+    <string name="player_subtitles_disabled">字幕已关闭</string>
+    <string name="player_playback_speed_feedback">播放速度 %1$s</string>
+    <string name="player_playback_failed">播放失败</string>
+    <string name="player_remaining">剩余：%1$s</string>
+    <string name="player_loading_details">正在加载媒体详情</string>
+    <string name="player_details_failed">详情加载失败</string>
+    <string name="player_actor_prefix">演员 %1$s</string>
+    <string name="player_actor_role_format">%1$s 饰 %2$s</string>
+    <string name="player_official_rating_label">分级 %1$s</string>
+    <string name="player_rating_label">IMDb/社区 %1$s</string>
+    <string name="player_critic_rating_label">影评 %1$s%%</string>
+    <string name="player_danmaku_opacity_60">透明 60%</string>
+    <string name="player_danmaku_opacity_100">透明 100%</string>
+    <string name="player_danmaku_size_small">字号 小</string>
+    <string name="player_danmaku_size_normal">字号 标准</string>
+    <string name="player_danmaku_size_large">字号 大</string>
+    <string name="player_danmaku_area_top">顶部</string>
+    <string name="player_danmaku_area_full">全屏</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_option">语言 %1$s</string>
 </resources>

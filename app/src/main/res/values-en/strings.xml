@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Emby TV</string>
+    <string name="player_title_fallback">Emby Playback</string>
+    <string name="player_back">Back</string>
+    <string name="player_previous">Previous</string>
+    <string name="player_next">Next</string>
+    <string name="player_no_previous">No previous episode</string>
+    <string name="player_no_next">No next episode</string>
+    <string name="player_replay_10">Replay 10 seconds</string>
+    <string name="player_forward_10">Forward 10 seconds</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_play">Play</string>
+    <string name="player_audio">Audio</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_speed">Speed</string>
+    <string name="player_danmaku">Danmaku</string>
+    <string name="player_on">On</string>
+    <string name="player_off">Off</string>
+    <string name="player_no_audio">No audio tracks available</string>
+    <string name="player_no_subtitles">No subtitles available</string>
+    <string name="player_direct_play">Direct Play</string>
+    <string name="player_unknown_quality">Unknown quality</string>
+    <string name="player_disable_subtitles">Disable subtitles</string>
+    <string name="player_subtitles_disabled">Subtitles disabled</string>
+    <string name="player_playback_speed_feedback">Playback speed %1$s</string>
+    <string name="player_playback_failed">Playback failed</string>
+    <string name="player_remaining">Remaining: %1$s</string>
+    <string name="player_loading_details">Loading media details</string>
+    <string name="player_details_failed">Failed to load details</string>
+    <string name="player_actor_prefix">Cast %1$s</string>
+    <string name="player_actor_role_format">%1$s as %2$s</string>
+    <string name="player_official_rating_label">Rated %1$s</string>
+    <string name="player_rating_label">IMDb/community %1$s</string>
+    <string name="player_critic_rating_label">Critic %1$s%%</string>
+    <string name="player_danmaku_opacity_60">Opacity 60%</string>
+    <string name="player_danmaku_opacity_100">Opacity 100%</string>
+    <string name="player_danmaku_size_small">Small text</string>
+    <string name="player_danmaku_size_normal">Standard text</string>
+    <string name="player_danmaku_size_large">Large text</string>
+    <string name="player_danmaku_area_top">Top</string>
+    <string name="player_danmaku_area_full">Full screen</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_option">Language %1$s</string>
+</resources>

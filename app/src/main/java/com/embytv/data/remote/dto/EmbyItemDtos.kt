@@ -44,9 +44,18 @@ data class EmbyItemDto(
     @SerializedName("CommunityRating") val communityRating: Double? = null,
     @SerializedName("CriticRating") val criticRating: Double? = null,
     @SerializedName("OfficialRating") val officialRating: String? = null,
+    @SerializedName("ProviderIds") val providerIds: Map<String, String> = emptyMap(),
     @SerializedName("PremiereDate") val premiereDate: String? = null,
     @SerializedName("DateCreated") val dateCreated: String? = null,
     @SerializedName("PlaylistItemId") val playlistItemId: String? = null,
+    @SerializedName("Chapters") val chapters: List<EmbyChapterInfoDto> = emptyList(),
+)
+
+data class EmbyChapterInfoDto(
+    @SerializedName("StartPositionTicks") val startPositionTicks: Long? = null,
+    @SerializedName("Name") val name: String? = null,
+    @SerializedName("ImageTag") val imageTag: String? = null,
+    @SerializedName("ChapterIndex") val chapterIndex: Int? = null,
 )
 
 data class EmbyStudioDto(
@@ -101,4 +110,7 @@ data class EmbyMediaStreamDto(
     @SerializedName("VideoRange") val videoRange: String?,
     @SerializedName("IsDefault") val isDefault: Boolean = false,
     @SerializedName("IsForced") val isForced: Boolean = false,
+    @SerializedName("IsExternal") val isExternal: Boolean = false,
+    @SerializedName("DeliveryMethod") val deliveryMethod: String? = null,
+    @SerializedName("DeliveryUrl") val deliveryUrl: String? = null,
 )

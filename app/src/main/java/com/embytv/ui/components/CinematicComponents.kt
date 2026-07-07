@@ -25,6 +25,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
@@ -90,6 +96,41 @@ import com.embytv.ui.utils.accessibilityLabel
 
 val LocalEmbyImageAuthorizationHeader = compositionLocalOf<String?> { null }
 
+internal data class FocusableGlassSurfaceState(
+    val canFocus: Boolean,
+    val contentFocused: Boolean,
+    val scaleFocused: Boolean,
+)
+
+internal object FocusableGlassSurfacePolicy {
+    fun resolve(
+        focused: Boolean,
+        enabled: Boolean,
+        disabledReason: String?,
+    ): FocusableGlassSurfaceState {
+        val canFocus = enabled || disabledReason != null
+        return FocusableGlassSurfaceState(
+            canFocus = canFocus,
+            contentFocused = focused && canFocus,
+            scaleFocused = focused && enabled,
+        )
+    }
+}
+
+internal data class RemoteHintMotionSpec(
+    val enterDurationMs: Int,
+    val exitDurationMs: Int,
+    val verticalOffsetPx: Int,
+)
+
+internal object RemoteHintMotionPolicy {
+    val TvFeedback = RemoteHintMotionSpec(
+        enterDurationMs = 110,
+        exitDurationMs = 90,
+        verticalOffsetPx = 10,
+    )
+}
+
 @Composable
 fun GlassPanel(
     modifier: Modifier = Modifier,
@@ -143,9 +184,13 @@ fun FocusableGlassSurface(
     content: @Composable (Boolean) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val canFocus = enabled || disabledReason != null
+    val focusState = FocusableGlassSurfacePolicy.resolve(
+        focused = focused,
+        enabled = enabled,
+        disabledReason = disabledReason,
+    )
     val scale by animateFloatAsState(
-        targetValue = if (focused && enabled) 1.035f else 1f,
+        targetValue = if (focusState.scaleFocused) 1.035f else 1f,
         label = "focused-scale",
     )
     GlassPanel(
@@ -174,7 +219,7 @@ fun FocusableGlassSurface(
                     else -> false
                 }
             }
-            .focusable(canFocus)
+            .focusable(focusState.canFocus)
             .then(
                 when {
                     onClick != null && enabled -> Modifier.clickable(onClick = onClick)
@@ -187,7 +232,7 @@ fun FocusableGlassSurface(
         focused = focused,
         cornerRadius = cornerRadius,
     ) {
-        content(focused && enabled)
+        content(focusState.contentFocused)
     }
 }
 
@@ -680,15 +725,35 @@ fun RemoteHint(
     message: String?,
     modifier: Modifier = Modifier,
 ) {
-    if (message.isNullOrBlank()) return
-    GlassPanel(modifier = modifier, cornerRadius = 999.dp) {
-        Text(
-            text = message,
-            color = CinematicGlassColors.OnSurface,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
-        )
+    var lastMessage by remember { mutableStateOf<String?>(null) }
+    if (!message.isNullOrBlank()) {
+        lastMessage = message
+    }
+    val visible = !message.isNullOrBlank()
+    val spec = RemoteHintMotionPolicy.TvFeedback
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = fadeIn(animationSpec = tween(spec.enterDurationMs)) +
+            slideInVertically(
+                animationSpec = tween(spec.enterDurationMs),
+                initialOffsetY = { spec.verticalOffsetPx },
+            ),
+        exit = fadeOut(animationSpec = tween(spec.exitDurationMs)) +
+            slideOutVertically(
+                animationSpec = tween(spec.exitDurationMs),
+                targetOffsetY = { spec.verticalOffsetPx },
+            ),
+    ) {
+        GlassPanel(cornerRadius = 999.dp) {
+            Text(
+                text = lastMessage.orEmpty(),
+                color = CinematicGlassColors.OnSurface,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+            )
+        }
     }
 }
 

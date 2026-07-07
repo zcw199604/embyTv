@@ -6,6 +6,7 @@ data class EmbyPlaybackStartRequest(
     @SerializedName("ItemId") val itemId: String,
     @SerializedName("MediaSourceId") val mediaSourceId: String?,
     @SerializedName("PlaySessionId") val playSessionId: String?,
+    @SerializedName("PlaylistItemId") val playlistItemId: String?,
     @SerializedName("PositionTicks") val positionTicks: Long,
     @SerializedName("CanSeek") val canSeek: Boolean = true,
     @SerializedName("IsPaused") val isPaused: Boolean = false,
@@ -16,6 +17,7 @@ data class EmbyPlaybackProgressRequest(
     @SerializedName("ItemId") val itemId: String,
     @SerializedName("MediaSourceId") val mediaSourceId: String?,
     @SerializedName("PlaySessionId") val playSessionId: String?,
+    @SerializedName("PlaylistItemId") val playlistItemId: String?,
     @SerializedName("PositionTicks") val positionTicks: Long,
     @SerializedName("IsPaused") val isPaused: Boolean,
     @SerializedName("IsMuted") val isMuted: Boolean = false,
@@ -26,5 +28,6 @@ data class EmbyPlaybackStoppedRequest(
     @SerializedName("ItemId") val itemId: String,
     @SerializedName("MediaSourceId") val mediaSourceId: String?,
     @SerializedName("PlaySessionId") val playSessionId: String?,
+    @SerializedName("PlaylistItemId") val playlistItemId: String?,
     @SerializedName("PositionTicks") val positionTicks: Long,
 )

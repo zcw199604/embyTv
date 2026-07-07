@@ -16,7 +16,7 @@
 - 媒体图片统一使用 `NetworkBackdropImage`，认证 Header 由 `LocalEmbyImageAuthorizationHeader` 注入。
 - 加载态优先使用 `loading/` 下的骨架屏，避免空白闪烁。
 - 可访问组件需要提供清晰的 `contentDescription` 或 `Modifier.accessibilityLabel()`。
-- 禁用入口需要提供 `disabledReason`，遥控器确认时应给出反馈。
+- 禁用入口需要提供 `disabledReason`，遥控器确认时应给出反馈；带提示的禁用入口仍需把 focused 状态传给内容层，用于显示禁用但可见的焦点反馈。
 
 ## 设计令牌
 

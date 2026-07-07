@@ -84,6 +84,7 @@ import com.embytv.ui.components.panels.ErrorType
 import com.embytv.ui.setup.SetupScreen
 import com.embytv.ui.theme.CinematicGlassColors
 import com.embytv.ui.theme.CinematicGlassSpacing
+import com.embytv.ui.theme.AppLanguage
 import com.embytv.ui.theme.AppThemeId
 import com.embytv.ui.theme.FontScale
 import kotlinx.coroutines.launch
@@ -139,6 +140,7 @@ fun HomeScreen(
                 onSelectTheme = viewModel::selectTheme,
                 onSetHighContrast = viewModel::setHighContrast,
                 onSelectFontScale = viewModel::selectFontScale,
+                onSelectLanguage = viewModel::selectLanguage,
                 onOpenDiscovery = viewModel::openDiscovery,
                 onBackFromDiscovery = viewModel::backFromDiscovery,
                 onCloseDiscovery = viewModel::closeDiscovery,
@@ -301,6 +303,7 @@ private fun HomeDashboardScreen(
     onSelectTheme: (AppThemeId) -> Unit,
     onSetHighContrast: (Boolean) -> Unit,
     onSelectFontScale: (FontScale) -> Unit,
+    onSelectLanguage: (AppLanguage) -> Unit,
     onOpenDiscovery: (DiscoveryKind) -> Unit,
     onBackFromDiscovery: () -> Unit,
     onCloseDiscovery: () -> Unit,
@@ -392,6 +395,7 @@ private fun HomeDashboardScreen(
                 onSelectTheme = onSelectTheme,
                 onSetHighContrast = onSetHighContrast,
                 onSelectFontScale = onSelectFontScale,
+                onSelectLanguage = onSelectLanguage,
             )
         } else if (state.discoveryContent.isOpen) {
             DiscoveryScreen(
@@ -569,6 +573,7 @@ private fun SettingsScreen(
     onSelectTheme: (AppThemeId) -> Unit,
     onSetHighContrast: (Boolean) -> Unit,
     onSelectFontScale: (FontScale) -> Unit,
+    onSelectLanguage: (AppLanguage) -> Unit,
 ) {
     val backFocusRequester = remember { FocusRequester() }
     BackHandler(enabled = true, onBack = onBack)
@@ -637,6 +642,17 @@ private fun SettingsScreen(
                         title = "字体 ${scale.displayName}",
                         selected = preferences.fontScale == scale,
                         onClick = { onSelectFontScale(scale) },
+                    )
+                }
+            }
+        }
+        item {
+            SettingsSection(title = "语言") {
+                AppLanguage.entries.forEach { language ->
+                    SettingsOptionChip(
+                        title = language.displayName,
+                        selected = preferences.language == language,
+                        onClick = { onSelectLanguage(language) },
                     )
                 }
             }

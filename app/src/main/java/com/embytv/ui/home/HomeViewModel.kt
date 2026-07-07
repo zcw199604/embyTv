@@ -18,6 +18,7 @@ import com.embytv.domain.model.PlaybackSource
 import com.embytv.domain.model.SavedEmbyCredential
 import com.embytv.domain.model.ServerConfigDraft
 import com.embytv.domain.model.ServerProtocol
+import com.embytv.ui.theme.AppLanguage
 import com.embytv.ui.theme.AppThemeId
 import com.embytv.ui.theme.FontScale
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -262,6 +263,12 @@ class HomeViewModel(
     fun selectFontScale(fontScale: FontScale) {
         viewModelScope.launch {
             themePreferenceStore.setFontScale(fontScale)
+        }
+    }
+
+    fun selectLanguage(language: AppLanguage) {
+        viewModelScope.launch {
+            themePreferenceStore.setLanguage(language)
         }
     }
 
@@ -615,7 +622,7 @@ class HomeViewModel(
     private fun observeThemePreferences() {
         viewModelScope.launch {
             themePreferenceStore.preferencesFlow.collect { preferences ->
-                _uiState.update { it.copy(themePreferences = preferences) }
+                _uiState.update { HomeThemePreferenceObserver.apply(it, preferences) }
             }
         }
     }

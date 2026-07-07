@@ -3,6 +3,7 @@ package com.embytv.data.repository
 import com.embytv.BuildConfig
 import com.embytv.data.remote.EmbyApiProvider
 import com.embytv.data.remote.dto.EmbyAuthRequest
+import com.embytv.data.remote.dto.EmbyChapterInfoDto
 import com.embytv.data.remote.dto.EmbyItemDto
 import com.embytv.data.remote.dto.EmbyMediaSourceDto
 import com.embytv.data.remote.dto.EmbyMediaStreamDto
@@ -28,11 +29,13 @@ import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.MediaItemSummary
 import com.embytv.domain.model.NoOpEmbyCredentialStore
 import com.embytv.domain.model.PlaybackDetails
+import com.embytv.domain.model.PlaybackOverlayDetails
 import com.embytv.domain.model.PlaybackQueue
 import com.embytv.domain.model.PlaybackSource
 import com.embytv.domain.model.PlaybackTrack
 import com.embytv.domain.model.PlaybackVideoStream
 import com.embytv.domain.model.SavedEmbyCredential
+import com.embytv.domain.model.SeekThumbnail
 import com.embytv.domain.model.ServerConfig
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -466,8 +469,37 @@ class EmbyRepository(
                 communityRating = item.communityRating,
                 officialRating = item.officialRating,
                 premiereDate = item.premiereDate,
+                criticRating = item.criticRating,
+                providerIds = item.providerIds.filterProviderIds(),
                 seasons = seasons,
             )
+        }
+    }
+
+    suspend fun loadPlaybackOverlayDetails(
+        session: EmbySession,
+        deviceId: String,
+        itemId: String,
+    ): Result<PlaybackOverlayDetails> = withContext(ioDispatcher) {
+        runCatching {
+            val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val authorization = buildAuthorizationHeader(deviceId, session.accessToken)
+            coroutineScope {
+                val detailDeferred = async {
+                    loadMediaDetail(session, deviceId, itemId).getOrThrow()
+                }
+                val playbackDeferred = async {
+                    api.getPlaybackInfo(
+                        authorization = authorization,
+                        itemId = itemId,
+                        userId = session.userId,
+                    ).toPlaybackDetails(session)
+                }
+                PlaybackOverlayDetails(
+                    mediaDetail = detailDeferred.await(),
+                    playbackDetails = playbackDeferred.await(),
+                )
+            }
         }
     }
 
@@ -503,8 +535,13 @@ class EmbyRepository(
                 itemId = item.id,
                 accessToken = session.accessToken,
             ),
+            playlistItemId = item.playlistItemId,
             session = session,
             queue = queue,
+            previewThumbnailUrl = item.thumbImageUrl ?: item.backdropImageUrl ?: item.imageUrl,
+            seekThumbnails = item.seekThumbnails,
+            startPositionMs = item.playbackPositionTicks.toMilliseconds(),
+            contextLabel = item.playbackContextLabel(),
         )
 
     suspend fun createPlaybackSourceWithDetails(
@@ -515,30 +552,22 @@ class EmbyRepository(
     ): Result<PlaybackSource> = withContext(ioDispatcher) {
         runCatching {
             val api = apiFactory.create(session.serverUrl, session.accessToken)
+            val authorization = buildAuthorizationHeader(deviceId, session.accessToken)
             val playbackInfo = api.getPlaybackInfo(
-                authorization = buildAuthorizationHeader(deviceId, session.accessToken),
+                authorization = authorization,
                 itemId = item.id,
                 userId = session.userId,
             )
-            val source = playbackInfo.mediaSources.firstOrNull()
-            val queue = PlaybackQueue.from(queueItems, item.id)
-                ?: loadPlaybackQueueItemsForItem(
-                    api = api,
-                    authorization = buildAuthorizationHeader(deviceId, session.accessToken),
-                    session = session,
-                    item = item,
-                )?.let { PlaybackQueue.from(it, item.id) }
+            val queue = buildPlaybackQueue(
+                api = api,
+                authorization = authorization,
+                session = session,
+                item = item,
+                queueItems = queueItems,
+            )
             createPlaybackSource(session, item, queue).copy(
                 deviceId = deviceId,
-                details = PlaybackDetails(
-                    playSessionId = playbackInfo.playSessionId,
-                    mediaSourceId = source?.id,
-                    container = source?.container,
-                    bitrate = source?.bitrate,
-                    video = source?.videoStream()?.toPlaybackVideoStream(),
-                    audioTracks = source?.audioStreams().orEmpty().map { it.toPlaybackTrack() },
-                    subtitleTracks = source?.subtitleStreams().orEmpty().map { it.toPlaybackTrack() },
-                ),
+                details = playbackInfo.toPlaybackDetails(session),
             )
         }
     }
@@ -607,6 +636,7 @@ class EmbyRepository(
                     itemId = source.itemId,
                     mediaSourceId = source.details.mediaSourceId,
                     playSessionId = source.details.playSessionId,
+                    playlistItemId = source.playlistItemId,
                     positionTicks = positionMs.toEmbyTicks(),
                 ),
             )
@@ -628,6 +658,7 @@ class EmbyRepository(
                     itemId = source.itemId,
                     mediaSourceId = source.details.mediaSourceId,
                     playSessionId = source.details.playSessionId,
+                    playlistItemId = source.playlistItemId,
                     positionTicks = positionMs.toEmbyTicks(),
                     isPaused = isPaused,
                 ),
@@ -649,6 +680,7 @@ class EmbyRepository(
                     itemId = source.itemId,
                     mediaSourceId = source.details.mediaSourceId,
                     playSessionId = source.details.playSessionId,
+                    playlistItemId = source.playlistItemId,
                     positionTicks = positionMs.toEmbyTicks(),
                 ),
             )
@@ -694,6 +726,7 @@ class EmbyRepository(
             played = userData?.played ?: false,
             playCount = userData?.playCount,
             playlistItemId = playlistItemId,
+            seekThumbnails = chapters.toSeekThumbnails(serverUrl, id),
         )
     }
 
@@ -934,6 +967,27 @@ class EmbyRepository(
     private fun EmbyItemDto.primaryTag(): String? =
         imageTags?.get("Primary") ?: primaryImageTag
 
+    private fun List<EmbyChapterInfoDto>.toSeekThumbnails(serverUrl: String, itemId: String): List<SeekThumbnail> =
+        mapIndexedNotNull { index, chapter ->
+            val imageUrl = streamUrlBuilder.buildChapterImageUrl(
+                serverUrl = serverUrl,
+                itemId = itemId,
+                chapterIndex = chapter.chapterIndex ?: index,
+                tag = chapter.imageTag,
+                profile = EmbyImageProfile.Thumb,
+            ) ?: return@mapIndexedNotNull null
+            SeekThumbnail(
+                positionMs = chapter.startPositionTicks.toMilliseconds(),
+                imageUrl = imageUrl,
+            )
+        }.sortedBy { it.positionMs }
+
+    private fun Map<String, String>.filterProviderIds(): Map<String, String> =
+        filter { (key, value) -> key.isNotBlank() && value.isNotBlank() }
+
+    private fun Long?.toMilliseconds(): Long =
+        this?.takeIf { it > 0L }?.div(10_000L) ?: 0L
+
     private fun EmbyLibrarySummary.isTvShows(): Boolean =
         collectionType.equals("tvshows", ignoreCase = true)
 
@@ -955,6 +1009,20 @@ class EmbyRepository(
         else -> "Movie,Series"
     }
 
+    private fun MediaItemSummary.playbackContextLabel(): String? {
+        val episodeLabel = if (parentIndexNumber != null && indexNumber != null) {
+            "S%02dE%02d".format(parentIndexNumber, indexNumber)
+        } else {
+            null
+        }
+        return when {
+            !seriesName.isNullOrBlank() && episodeLabel != null -> "$seriesName · $episodeLabel"
+            !seasonName.isNullOrBlank() && episodeLabel != null -> "$seasonName · $episodeLabel"
+            productionYear != null -> productionYear.toString()
+            else -> null
+        }
+    }
+
     private fun EmbyMediaSourceDto.videoStream(): EmbyMediaStreamDto? =
         mediaStreams.firstOrNull { it.type.equals("Video", ignoreCase = true) }
 
@@ -964,6 +1032,19 @@ class EmbyRepository(
     private fun EmbyMediaSourceDto.subtitleStreams(): List<EmbyMediaStreamDto> =
         mediaStreams.filter { it.type.equals("Subtitle", ignoreCase = true) }
 
+    private fun com.embytv.data.remote.dto.EmbyPlaybackInfoResponse.toPlaybackDetails(session: EmbySession): PlaybackDetails {
+        val source = mediaSources.firstOrNull()
+        return PlaybackDetails(
+            playSessionId = playSessionId,
+            mediaSourceId = source?.id,
+            container = source?.container,
+            bitrate = source?.bitrate,
+            video = source?.videoStream()?.toPlaybackVideoStream(),
+            audioTracks = source?.audioStreams().orEmpty().map { it.toPlaybackTrack(session) },
+            subtitleTracks = source?.subtitleStreams().orEmpty().map { it.toPlaybackTrack(session) },
+        )
+    }
+
     private fun EmbyMediaStreamDto.toPlaybackVideoStream(): PlaybackVideoStream =
         PlaybackVideoStream(
             codec = codec,
@@ -972,7 +1053,7 @@ class EmbyRepository(
             videoRange = videoRange,
         )
 
-    private fun EmbyMediaStreamDto.toPlaybackTrack(): PlaybackTrack =
+    private fun EmbyMediaStreamDto.toPlaybackTrack(session: EmbySession): PlaybackTrack =
         PlaybackTrack(
             index = index ?: -1,
             codec = codec,
@@ -981,6 +1062,17 @@ class EmbyRepository(
             language = language,
             isDefault = isDefault,
             isForced = isForced,
+            isExternal = isExternal,
+            deliveryMethod = deliveryMethod,
+            externalUrl = if (isExternal) {
+                streamUrlBuilder.buildSubtitleDeliveryUrl(
+                    serverUrl = session.serverUrl,
+                    deliveryUrl = deliveryUrl,
+                    accessToken = session.accessToken,
+                )
+            } else {
+                null
+            },
         )
 
     private suspend fun loadPlaybackQueueItemsForItem(
@@ -1003,6 +1095,61 @@ class EmbyRepository(
         }.getOrNull()
     }
 
+    private suspend fun buildPlaybackQueue(
+        api: com.embytv.data.remote.EmbyApi,
+        authorization: String,
+        session: EmbySession,
+        item: MediaItemSummary,
+        queueItems: List<MediaItemSummary>,
+    ): PlaybackQueue? {
+        val baseQueue = PlaybackQueue.from(queueItems, item.id)
+            ?: loadPlaybackQueueItemsForItem(
+                api = api,
+                authorization = authorization,
+                session = session,
+                item = item,
+            )?.sortedByPlaybackOrder()
+                ?.let { PlaybackQueue.from(it, item.id) }
+        if (baseQueue?.next != null || !item.type.equals("Episode", ignoreCase = true)) {
+            return baseQueue
+        }
+        val nextUp = loadNextUpFallbackForItem(
+            api = api,
+            authorization = authorization,
+            session = session,
+            item = item,
+        ) ?: return baseQueue
+        return baseQueue?.copy(next = nextUp) ?: PlaybackQueue(current = item, next = nextUp)
+    }
+
+    private suspend fun loadNextUpFallbackForItem(
+        api: com.embytv.data.remote.EmbyApi,
+        authorization: String,
+        session: EmbySession,
+        item: MediaItemSummary,
+    ): MediaItemSummary? {
+        val seriesId = item.seriesId?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            api.getNextUp(
+                authorization = authorization,
+                userId = session.userId,
+                seriesId = seriesId,
+                limit = NEXT_UP_LIMIT,
+            ).items.mapNotNull { it.toMediaItemSummary(session.serverUrl) }
+                .firstOrNull { it.id != item.id }
+        }.getOrNull()
+    }
+
+    private fun List<MediaItemSummary>.sortedByPlaybackOrder(): List<MediaItemSummary> =
+        sortedWith(
+            compareBy<MediaItemSummary>(
+                { it.parentIndexNumber ?: Int.MAX_VALUE },
+                { it.indexNumber ?: Int.MAX_VALUE },
+                { it.name },
+                { it.id },
+            ),
+        )
+
     private companion object {
         const val SEARCH_LIMIT = 60
         const val DISCOVERY_LIMIT = 60
@@ -1022,4 +1169,14 @@ private data class DashboardParts(
     val libraryLatestSections: List<EmbyLibraryLatestSection>,
 )
 
-internal fun Long.toEmbyTicks(): Long = coerceAtLeast(0L) * 10_000L
+internal fun Long.toEmbyTicks(): Long {
+    val positionMs = coerceAtLeast(0L)
+    val maxSafePositionMs = Long.MAX_VALUE / EMBY_TICKS_PER_MILLISECOND
+    return if (positionMs > maxSafePositionMs) {
+        Long.MAX_VALUE
+    } else {
+        positionMs * EMBY_TICKS_PER_MILLISECOND
+    }
+}
+
+private const val EMBY_TICKS_PER_MILLISECOND = 10_000L

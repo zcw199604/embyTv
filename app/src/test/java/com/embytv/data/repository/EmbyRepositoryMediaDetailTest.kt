@@ -4,6 +4,7 @@ import com.embytv.data.remote.EmbyApi
 import com.embytv.data.remote.EmbyApiProvider
 import com.embytv.data.remote.dto.EmbyAuthRequest
 import com.embytv.data.remote.dto.EmbyAuthResponse
+import com.embytv.data.remote.dto.EmbyChapterInfoDto
 import com.embytv.data.remote.dto.EmbyItemDto
 import com.embytv.data.remote.dto.EmbyItemsResponse
 import com.embytv.data.remote.dto.EmbyMediaSourceDto
@@ -18,7 +19,11 @@ import com.embytv.data.remote.dto.EmbyUserDataUpdateRequest
 import com.embytv.data.remote.dto.EmbyViewsResponse
 import com.embytv.domain.model.EmbySeasonSummary
 import com.embytv.domain.model.EmbySession
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -50,6 +55,7 @@ class EmbyRepositoryMediaDetailTest {
         assertEquals("movie-1", request.itemId)
         assertEquals(true, request.fields.contains("People"))
         assertEquals(true, request.fields.contains("Genres"))
+        assertEquals(true, request.fields.contains("ProviderIds"))
 
         assertEquals("movie-1", detail.item.id)
         assertEquals("真实电影", detail.item.name)
@@ -59,9 +65,17 @@ class EmbyRepositoryMediaDetailTest {
         assertEquals(listOf("电影公司"), detail.studios)
         assertEquals("PG-13", detail.officialRating)
         assertEquals(8.6, detail.communityRating)
+        assertEquals(92.0, detail.criticRating)
+        assertEquals("tt1234567", detail.providerIds["Imdb"])
+        assertEquals("douban-123", detail.providerIds["Douban"])
         assertEquals("演员甲", detail.people.single().name)
         assertEquals("主角", detail.people.single().role)
         assertEquals(emptyList<EmbySeasonSummary>(), detail.seasons)
+        assertEquals(
+            "http://emby.test/Items/movie-1/Images/Chapter/2?tag=chapter-2&MaxWidth=640&MaxHeight=360&Quality=85",
+            detail.item.seekThumbnails.single().imageUrl,
+        )
+        assertEquals(90_000L, detail.item.seekThumbnails.single().positionMs)
     }
 
     @Test
@@ -150,6 +164,118 @@ class EmbyRepositoryMediaDetailTest {
         assertEquals(25.0, result.episodes.single().playedPercentage)
     }
 
+    @Test
+    fun loadPlaybackOverlayDetailsRequestsMetadataAndPlaybackInfo() = runTest(dispatcher) {
+        api.item = movieDetail()
+
+        val overlay = repository.loadPlaybackOverlayDetails(session, "device-1", "movie-1").getOrThrow()
+
+        assertEquals("movie-1", api.itemRequests.single().itemId)
+        assertEquals("movie-1", api.playbackInfoRequests.single().itemId)
+        assertEquals("真实电影", overlay.mediaDetail.item.name)
+        assertEquals("media-source", overlay.playbackDetails.mediaSourceId)
+        assertEquals("4.0 Mbps", overlay.playbackDetails.bitrateLabel)
+    }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun loadPlaybackOverlayDetailsStartsPlaybackInfoBeforeMetadataCompletes() = runTest(dispatcher) {
+        api.item = movieDetail()
+        val releaseMetadata = CompletableDeferred<Unit>()
+        api.itemResponseGate = releaseMetadata
+
+        val overlayDeferred = async {
+            repository.loadPlaybackOverlayDetails(session, "device-1", "movie-1")
+        }
+        runCurrent()
+
+        assertEquals("movie-1", api.itemRequests.single().itemId)
+        assertEquals("movie-1", api.playbackInfoRequests.single().itemId)
+
+        releaseMetadata.complete(Unit)
+        val overlay = overlayDeferred.await().getOrThrow()
+
+        assertEquals("真实电影", overlay.mediaDetail.item.name)
+        assertEquals("media-source", overlay.playbackDetails.mediaSourceId)
+    }
+
+    @Test
+    fun createPlaybackSourceCarriesResumePositionFromUserData() {
+        val source = repository.createPlaybackSource(
+            session = session,
+            item = movieDetail().toSummaryWithResumePosition(),
+        )
+
+        assertEquals(45_000L, source.startPositionMs)
+    }
+
+    @Test
+    fun createPlaybackSourceClampsInvalidResumePositionTicks() {
+        val source = repository.createPlaybackSource(
+            session = session,
+            item = movieDetail().toSummaryWithResumePosition(playbackPositionTicks = -10_000L),
+        )
+
+        assertEquals(0L, source.startPositionMs)
+    }
+
+    @Test
+    fun createPlaybackSourceConvertsHugeResumePositionTicksWithoutOverflow() {
+        val source = repository.createPlaybackSource(
+            session = session,
+            item = movieDetail().toSummaryWithResumePosition(playbackPositionTicks = Long.MAX_VALUE),
+        )
+
+        assertEquals(Long.MAX_VALUE / 10_000L, source.startPositionMs)
+    }
+
+    @Test
+    fun createPlaybackSourceCarriesPlaylistItemIdForPlaybackReporting() {
+        val source = repository.createPlaybackSource(
+            session = session,
+            item = movieDetail().toSummaryWithResumePosition(playlistItemId = "playlist-item-1"),
+        )
+
+        assertEquals("playlist-item-1", source.playlistItemId)
+    }
+
+    @Test
+    fun loadMovieDetailNormalizesSeekThumbnailTimelineBoundaries() = runTest(dispatcher) {
+        api.item = movieDetail().copy(
+            chapters = listOf(
+                EmbyChapterInfoDto(
+                    startPositionTicks = Long.MAX_VALUE,
+                    imageTag = "huge-chapter",
+                    chapterIndex = 3,
+                ),
+                EmbyChapterInfoDto(
+                    startPositionTicks = -10_000L,
+                    imageTag = "negative-chapter",
+                    chapterIndex = 1,
+                ),
+                EmbyChapterInfoDto(
+                    startPositionTicks = 60_000_000L,
+                    imageTag = " ",
+                    chapterIndex = 2,
+                ),
+            ),
+        )
+
+        val detail = repository.loadMediaDetail(session, "device-1", "movie-1").getOrThrow()
+
+        assertEquals(2, detail.item.seekThumbnails.size)
+        assertEquals(0L, detail.item.seekThumbnails[0].positionMs)
+        assertEquals(
+            "http://emby.test/Items/movie-1/Images/Chapter/1?tag=negative-chapter&MaxWidth=640&MaxHeight=360&Quality=85",
+            detail.item.seekThumbnails[0].imageUrl,
+        )
+        assertEquals(Long.MAX_VALUE / 10_000L, detail.item.seekThumbnails[1].positionMs)
+        assertEquals(
+            "http://emby.test/Items/movie-1/Images/Chapter/3?tag=huge-chapter&MaxWidth=640&MaxHeight=360&Quality=85",
+            detail.item.seekThumbnails[1].imageUrl,
+        )
+    }
+
     private fun movieDetail(): EmbyItemDto =
         EmbyItemDto(
             id = "movie-1",
@@ -169,8 +295,20 @@ class EmbyRepositoryMediaDetailTest {
             ),
             productionYear = 2026,
             communityRating = 8.6,
+            criticRating = 92.0,
             officialRating = "PG-13",
             premiereDate = "2026-05-01T00:00:00.0000000Z",
+            providerIds = mapOf(
+                "Imdb" to "tt1234567",
+                "Douban" to "douban-123",
+            ),
+            chapters = listOf(
+                EmbyChapterInfoDto(
+                    startPositionTicks = 900_000_000L,
+                    imageTag = "chapter-2",
+                    chapterIndex = 2,
+                ),
+            ),
         )
 
     private fun seriesDetail(): EmbyItemDto =
@@ -211,13 +349,20 @@ private data class EpisodesRequest(
     val fields: String,
 )
 
+private data class PlaybackInfoRequest(
+    val itemId: String,
+    val userId: String,
+)
+
 private class MediaDetailFakeEmbyApi : EmbyApi {
     val itemRequests = mutableListOf<ItemDetailRequest>()
     val seasonsRequests = mutableListOf<SeasonsRequest>()
     val episodeRequests = mutableListOf<EpisodesRequest>()
+    val playbackInfoRequests = mutableListOf<PlaybackInfoRequest>()
     var item: EmbyItemDto? = null
     var seasons: List<EmbyItemDto> = emptyList()
     var episodes: List<EmbyItemDto> = emptyList()
+    var itemResponseGate: CompletableDeferred<Unit>? = null
 
     override suspend fun authenticateByName(
         authorization: String,
@@ -248,6 +393,7 @@ private class MediaDetailFakeEmbyApi : EmbyApi {
         fields: String,
     ): EmbyItemDto {
         itemRequests += ItemDetailRequest(userId = userId, itemId = itemId, fields = fields)
+        itemResponseGate?.await()
         return requireNotNull(item) { "item not configured" }
     }
 
@@ -354,7 +500,20 @@ private class MediaDetailFakeEmbyApi : EmbyApi {
         authorization: String,
         itemId: String,
         userId: String,
-    ): EmbyPlaybackInfoResponse = EmbyPlaybackInfoResponse(playSessionId = null, mediaSources = emptyList<EmbyMediaSourceDto>())
+    ): EmbyPlaybackInfoResponse {
+        playbackInfoRequests += PlaybackInfoRequest(itemId = itemId, userId = userId)
+        return EmbyPlaybackInfoResponse(
+            playSessionId = "play-session",
+            mediaSources = listOf(
+                EmbyMediaSourceDto(
+                    id = "media-source",
+                    container = "MKV",
+                    bitrate = 4_000_000,
+                    mediaStreams = emptyList(),
+                ),
+            ),
+        )
+    }
 
     override suspend fun reportPlaybackStarted(
         authorization: String,
@@ -408,3 +567,17 @@ private class MediaDetailFakeEmbyApi : EmbyApi {
         request: EmbyUserDataUpdateRequest,
     ) = error("Not used")
 }
+
+private fun EmbyItemDto.toSummaryWithResumePosition(
+    playlistItemId: String? = null,
+    playbackPositionTicks: Long = 450_000_000L,
+): com.embytv.domain.model.MediaItemSummary =
+    com.embytv.domain.model.MediaItemSummary(
+        id = requireNotNull(id),
+        name = requireNotNull(name),
+        type = requireNotNull(type),
+        overview = overview,
+        imageUrl = null,
+        playbackPositionTicks = playbackPositionTicks,
+        playlistItemId = playlistItemId,
+    )

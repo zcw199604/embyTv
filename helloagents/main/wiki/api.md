@@ -170,9 +170,9 @@
 |--------|------|------|------|
 | userId | string | 是 | 当前用户 ID |
 | itemId | string | 是 | Movie 或 Series 条目 ID |
-| Fields | string | 是 | `Overview,People,Genres,Studios,PrimaryImageAspectRatio,PrimaryImageTag,ImageTags,BackdropImageTags,UserData,RunTimeTicks,ProductionYear,CommunityRating,CriticRating,OfficialRating,PremiereDate,RecursiveItemCount,ChildCount` |
+| Fields | string | 是 | `Overview,People,Genres,Studios,PrimaryImageAspectRatio,PrimaryImageTag,ImageTags,BackdropImageTags,UserData,RunTimeTicks,ProductionYear,CommunityRating,CriticRating,OfficialRating,ProviderIds,PremiereDate,RecursiveItemCount,ChildCount,Chapters` |
 
-**落地实现:** `EmbyRepository.loadMediaDetail()` 在 Movie/Series 卡片 OK 后调用该接口，映射为 `EmbyMediaDetail`；Movie 只展示详情和播放按钮，Series 继续加载季列表。DTO 字段全部按可空处理。
+**落地实现:** `EmbyRepository.loadMediaDetail()` 在 Movie/Series 卡片 OK 后调用该接口，映射为 `EmbyMediaDetail`；Movie 只展示详情和播放按钮，Series 继续加载季列表。`ProviderIds` 会保留非空外部 ID，供播放器详情 Overlay 展示 IMDb / Douban 等来源标识。`Chapters` 中带 `ImageTag` 的章节会映射为 `SeekThumbnail`，用于播放器 seek 预览。DTO 字段全部按可空处理。
 
 #### GET Shows/{seriesId}/Seasons
 **描述:** 获取电视剧季列表，用于 Series 详情页展示多季和每季剩余未播放数量。
@@ -195,9 +195,9 @@
 | seriesId | string | 是 | Series 条目 ID |
 | UserId | string | 是 | 当前用户 ID |
 | SeasonId | string | 是 | Season 条目 ID |
-| Fields | string | 是 | `Overview,PrimaryImageTag,ImageTags,BackdropImageTags,ParentThumbItemId,ParentThumbImageTag,ParentBackdropItemId,ParentBackdropImageTags,ParentIndexNumber,IndexNumber,UserData,RunTimeTicks,SeriesId,SeriesName,SeasonName` |
+| Fields | string | 是 | `Overview,PrimaryImageTag,ImageTags,BackdropImageTags,ParentThumbItemId,ParentThumbImageTag,ParentBackdropItemId,ParentBackdropImageTags,ParentIndexNumber,IndexNumber,UserData,RunTimeTicks,SeriesId,SeriesName,SeasonName,Chapters` |
 
-**落地实现:** 用户在 Series 详情页选择某一季时才调用该接口，不在首页或详情首屏预加载全部 Episode。Episode 卡片显示缩略图、剧名、SxxExx 和播放进度，OK 后走既有 `PlaybackInfo` + 播放上报路径。
+**落地实现:** 用户在 Series 详情页选择某一季时才调用该接口，不在首页或详情首屏预加载全部 Episode。Episode 卡片显示缩略图、剧名、SxxExx 和播放进度，OK 后走既有 `PlaybackInfo` + 播放上报路径。播放器创建播放源时如果没有显式播放队列，也会用当前 Episode 的 `SeriesId` + `ParentId` 获取同季队列，并按季号/集号排序后生成上一集/下一集。
 
 ### 图片资源
 
@@ -210,8 +210,9 @@
 | Primary | `ImageTags.Primary` | 媒体库封面、媒体条目主图兜底 |
 | Thumb | `ImageTags.Thumb` | 继续观看和最新资源缩略图优先来源 |
 | Backdrop | `BackdropImageTags[0]` | 缩略图缺失时的背景图兜底 |
+| Chapter | `Chapters[].ImageTag` + `ChapterIndex` | 播放器 seek 预览章节图 |
 
-**落地实现:** 图片兜底顺序覆盖 `ImageTags.Primary`、`PrimaryImageTag`、`ImageTags.Thumb`、`BackdropImageTags[0]`、`ParentThumbItemId + ParentThumbImageTag`、`ParentBackdropItemId + ParentBackdropImageTags[0]`、`SeriesId + SeriesPrimaryImageTag`。当只有 item id 而没有 tag 时，允许构造 `/Items/{itemId}/Images/{type}` 或 `/Items/{itemId}/Images/Backdrop/0` 作为 Emby 图片端点兜底；仍缺失时显示本地占位。UI 通过 `LocalEmbyImageAuthorizationHeader` 将当前 session 的 `X-Emby-Authorization` 注入 Coil `ImageRequest`，不把 token 拼入图片 URL。
+**落地实现:** 图片兜底顺序覆盖 `ImageTags.Primary`、`PrimaryImageTag`、`ImageTags.Thumb`、`BackdropImageTags[0]`、`ParentThumbItemId + ParentThumbImageTag`、`ParentBackdropItemId + ParentBackdropImageTags[0]`、`SeriesId + SeriesPrimaryImageTag`。当只有 item id 而没有 tag 时，允许构造 `/Items/{itemId}/Images/{type}` 或 `/Items/{itemId}/Images/Backdrop/0` 作为 Emby 图片端点兜底；章节图使用 `/Items/{itemId}/Images/Chapter/{ChapterIndex}?tag={ImageTag}`。仍缺失时显示本地占位。UI 通过 `LocalEmbyImageAuthorizationHeader` 将当前 session 的 `X-Emby-Authorization` 注入 Coil `ImageRequest`，不把 token 拼入图片 URL。
 
 ### 剧集下一集
 
@@ -219,6 +220,8 @@
 **描述:** 获取剧集下一集候选，用于首页 Next Up 区块和剧集播放队列兜底。
 
 **真实接口探测:** 2026-05-27 使用测试服务器请求成功，但当前返回 `TotalRecordCount=0`。
+
+**落地实现:** 首页 Next Up 区块使用该接口；播放器在同季队列没有下一集时，会带 `SeriesId` 再请求一次，取首个非当前 Episode 作为下一集兜底，用于 OSD 下一集按钮和自然结束自动播放。
 
 **落地实现:** 首页 Dashboard 小数量请求该接口，空结果不影响首页加载。
 
@@ -278,9 +281,14 @@
 | itemId | string | 是 | 媒体条目 ID |
 | UserId | string | 是 | 当前用户 ID |
 
-**真实接口探测:** 2026-05-27 使用测试服务器验证通过。响应包含 `PlaySessionId` 和 `MediaSources`；`MediaSources[0].MediaStreams` 中 Video 流包含 `Codec`、`Width`、`Height`、`VideoRange`、`BitRate`，Audio 流包含 `Codec`、`Channels`、`DisplayTitle`，Subtitle 流按存在情况返回。
+**真实接口探测:** 2026-05-27 使用测试服务器验证通过。响应包含 `PlaySessionId` 和 `MediaSources`；`MediaSources[0].MediaStreams` 中 Video 流包含 `Codec`、`Width`、`Height`、`VideoRange`、`BitRate`，Audio 流包含 `Codec`、`Channels`、`DisplayTitle`，Subtitle 流按存在情况返回；外挂字幕读取 `DeliveryUrl` 并规范化为带 `api_key` 的绝对 URL。
 
-**落地实现:** 用户点击媒体时才调用该接口生成 `PlaybackSource.details`，播放器 OSD 顶部副标题、右上角质量标签、Audio/Subtitles 状态均从 `PlaybackDetails` 读取；音轨/字幕切换能力仍为后续独立切片。
+**落地实现:** 用户点击媒体时才调用该接口生成 `PlaybackSource.details`，播放器 OSD 顶部副标题、右上角质量标签、Audio/Subtitles 状态均从 `PlaybackDetails` 读取；Media3 内嵌轨道通过 `TrackSelectionParameters` 切换，SRT/SubRip、WebVTT、ASS/SSA 外挂字幕通过 `MediaItem.SubtitleConfiguration` 接入。
+
+#### GET Videos/{itemId}/{mediaSourceId}/Subtitles/{index}/Stream.{format}
+**描述:** Emby 字幕流交付接口。客户端优先使用 PlaybackInfo 返回的 `MediaStream.DeliveryUrl`，并补全服务器地址与 `api_key` 后交给 Media3。
+
+**当前支持:** SRT/SubRip、WebVTT、ASS/SSA 外挂字幕会映射为 Media3 字幕配置；PGS 等位图字幕仍保留在 OSD 标签层，需实机验证或扩展渲染支持。
 
 ### 播放状态上报
 
@@ -295,7 +303,8 @@ Emby 官方将播放状态同步称为 Playback Check-ins。当前客户端使�
 | ItemId | string | 是 | 媒体条目 ID |
 | MediaSourceId | string | 否 | `PlaybackInfo.MediaSources[].Id` |
 | PlaySessionId | string | 否 | `PlaybackInfo.PlaySessionId` |
-| PositionTicks | long | 是 | 当前播放位置 ticks |
+| PlaylistItemId | string | 否 | 播放列表条目 ID，存在时来自 `MediaItemSummary.PlaylistItemId` |
+| PositionTicks | long | 是 | 当前播放位置 ticks；客户端由毫秒位置转换，负数归零，极端大值饱和到 Long.MAX_VALUE |
 | CanSeek | boolean | 是 | 当前固定 true |
 | IsPaused | boolean | 是 | 开始播放时 false |
 | PlayMethod | string | 是 | 当前固定 DirectPlay |
@@ -309,7 +318,8 @@ Emby 官方将播放状态同步称为 Playback Check-ins。当前客户端使�
 | ItemId | string | 是 | 媒体条目 ID |
 | MediaSourceId | string | 否 | 媒体源 ID |
 | PlaySessionId | string | 否 | 播放会话 ID |
-| PositionTicks | long | 是 | 当前播放位置 ticks |
+| PlaylistItemId | string | 否 | 播放列表条目 ID |
+| PositionTicks | long | 是 | 当前播放位置 ticks；客户端由毫秒位置转换，负数归零，极端大值饱和到 Long.MAX_VALUE |
 | IsPaused | boolean | 是 | 是否暂停 |
 | IsMuted | boolean | 是 | 当前固定 false |
 | PlayMethod | string | 是 | 当前固定 DirectPlay |
@@ -323,9 +333,10 @@ Emby 官方将播放状态同步称为 Playback Check-ins。当前客户端使�
 | ItemId | string | 是 | 媒体条目 ID |
 | MediaSourceId | string | 否 | 媒体源 ID |
 | PlaySessionId | string | 否 | 播放会话 ID |
-| PositionTicks | long | 是 | 停止时播放位置 ticks |
+| PlaylistItemId | string | 否 | 播放列表条目 ID |
+| PositionTicks | long | 是 | 停止时播放位置 ticks；客户端由毫秒位置转换，负数归零，极端大值饱和到 Long.MAX_VALUE |
 
-**落地实现:** `PlayerScreen` 通过 `PlaybackReportingCoordinator` 控制 Playing/Progress/Stopped 去重和节流；进度默认 10 秒上报一次，暂停、恢复、快退、快进和停止为强制上报。上一集/下一集手动切换前会先对当前媒体发送 stopped；进度轮询跟随当前 `PlaybackSource`，避免切集后继续上报旧 itemId。
+**落地实现:** `PlayerScreen` 通过 `PlaybackReportingCoordinator` 控制 Playing/Progress/Stopped 去重和节流；进度默认 10 秒上报一次，非正数节流间隔回退到默认值，暂停、恢复、快退、快进和停止为强制上报。上一集/下一集手动切换前会先对当前媒体发送 stopped；进度轮询跟随当前 `PlaybackSource`，避免切集后继续上报旧 itemId。
 
 ### 播放流
 

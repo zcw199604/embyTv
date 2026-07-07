@@ -107,6 +107,7 @@ Emby 登录成功后：
 - 主题支持 Cinematic Glass、Dark Minimal 和 Emby Classic。
 - 高对比度开启后覆盖当前主题颜色，使用黑底、白字和高亮绿色主色。
 - 字体大小偏好支持 Small、Normal、Large、ExtraLarge 四档，并持久化到 DataStore。
+- 语言偏好支持跟随系统、简体中文和英文；固定语言模式下，Compose localized Context 仍需随 Android `LocalConfiguration` 变化重建，避免系统字体、屏幕或区域配置变化后资源上下文陈旧。
 - Back 或顶部返回按钮返回首页。
 
 #### 场景: 媒体详情页
@@ -150,6 +151,7 @@ Emby 登录成功后：
 - 通用 `FocusableGlassSurface` 显式处理 `DirectionCenter`、`Enter` 和 `NumPadEnter` 的 KeyUp，聚焦后单次 OK/Enter 即触发可用入口或禁用原因提示。
 - Back 在抽屉打开时关闭抽屉，在媒体库列表页返回首页，在播放 OSD 可见时隐藏 OSD，OSD 隐藏时退出播放页。
 - 禁用入口可显示原因，OK/Enter 不允许空响应。
+- 通用 `RemoteHint` 用 `RemoteHintMotionPolicy.TvFeedback` 执行不超过 120ms 进入、100ms 退出、10px 竖向位移的短时反馈动画，并保留上一条提示文本完成退出转场，避免禁用入口和错误提示在 TV 上突兀闪现。
 
 #### 场景: 首页与抽屉
 首页打开抽屉后：

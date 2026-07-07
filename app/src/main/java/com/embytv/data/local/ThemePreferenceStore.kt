@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.embytv.ui.theme.AppLanguage
 import com.embytv.ui.theme.AppThemeId
 import com.embytv.ui.theme.FontScale
 import com.embytv.ui.theme.ThemePreferences
@@ -25,6 +26,7 @@ class ThemePreferenceStore(private val context: Context) {
                 themeId = AppThemeId.fromStorageValue(preferences[THEME_KEY]),
                 highContrast = preferences[HIGH_CONTRAST_KEY] ?: false,
                 fontScale = FontScale.fromStorageValue(preferences[FONT_SCALE_KEY]),
+                language = AppLanguage.fromStorageValue(preferences[LANGUAGE_KEY]),
             )
         }
 
@@ -46,9 +48,16 @@ class ThemePreferenceStore(private val context: Context) {
         }
     }
 
+    suspend fun setLanguage(language: AppLanguage) {
+        context.themePreferencesDataStore.edit { preferences ->
+            preferences[LANGUAGE_KEY] = language.storageValue
+        }
+    }
+
     companion object {
         private val THEME_KEY = stringPreferencesKey("theme_id")
         private val HIGH_CONTRAST_KEY = booleanPreferencesKey("high_contrast")
         private val FONT_SCALE_KEY = stringPreferencesKey("font_scale")
+        private val LANGUAGE_KEY = stringPreferencesKey("language")
     }
 }

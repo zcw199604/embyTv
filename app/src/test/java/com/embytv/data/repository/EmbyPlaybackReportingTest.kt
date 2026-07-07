@@ -40,6 +40,7 @@ class EmbyPlaybackReportingTest {
         itemId = "item-1",
         title = "测试媒体",
         streamUrl = "http://emby.test/Videos/item-1/stream",
+        playlistItemId = "playlist-item-1",
         details = PlaybackDetails(
             playSessionId = "play-session",
             mediaSourceId = "media-source",
@@ -55,6 +56,7 @@ class EmbyPlaybackReportingTest {
         assertEquals("item-1", api.started.single().itemId)
         assertEquals("media-source", api.started.single().mediaSourceId)
         assertEquals("play-session", api.started.single().playSessionId)
+        assertEquals("playlist-item-1", api.started.single().playlistItemId)
         assertEquals(12_340_000L, api.started.single().positionTicks)
         assertFalse(api.started.single().isPaused)
         assertTrue(api.started.single().canSeek)
@@ -62,6 +64,7 @@ class EmbyPlaybackReportingTest {
         assertEquals("item-1", api.progress.single().itemId)
         assertEquals("media-source", api.progress.single().mediaSourceId)
         assertEquals("play-session", api.progress.single().playSessionId)
+        assertEquals("playlist-item-1", api.progress.single().playlistItemId)
         assertEquals(20_000_000L, api.progress.single().positionTicks)
         assertTrue(api.progress.single().isPaused)
         assertFalse(api.progress.single().isMuted)
@@ -70,6 +73,7 @@ class EmbyPlaybackReportingTest {
         assertEquals("item-1", api.stopped.single().itemId)
         assertEquals("media-source", api.stopped.single().mediaSourceId)
         assertEquals("play-session", api.stopped.single().playSessionId)
+        assertEquals("playlist-item-1", api.stopped.single().playlistItemId)
         assertEquals(30_000_000L, api.stopped.single().positionTicks)
     }
 
@@ -78,6 +82,19 @@ class EmbyPlaybackReportingTest {
         repository.reportPlaybackProgress(session, "device-1", source, positionMs = -10, isPaused = false).getOrThrow()
 
         assertEquals(0L, api.progress.single().positionTicks)
+    }
+
+    @Test
+    fun saturatesHugePlaybackPositionTicksInsteadOfOverflowing() = runTest(dispatcher) {
+        repository.reportPlaybackProgress(
+            session,
+            "device-1",
+            source,
+            positionMs = Long.MAX_VALUE,
+            isPaused = false,
+        ).getOrThrow()
+
+        assertEquals(Long.MAX_VALUE, api.progress.single().positionTicks)
     }
 
     @Test

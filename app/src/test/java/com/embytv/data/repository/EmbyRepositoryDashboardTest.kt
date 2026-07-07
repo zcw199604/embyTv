@@ -18,6 +18,8 @@ import com.embytv.data.remote.dto.EmbyViewsResponse
 import com.embytv.domain.model.EmbyLibrarySummary
 import com.embytv.domain.model.EmbySession
 import com.embytv.domain.model.MediaItemSummary
+import com.embytv.domain.model.SeekThumbnail
+import com.embytv.domain.model.previewThumbnailFor
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -210,6 +212,16 @@ class EmbyRepositoryDashboardTest {
                 type = "Episode",
                 overview = null,
                 imageUrl = null,
+                thumbImageUrl = "http://emby.test/Items/resume-1/Images/Thumb",
+                seriesName = "真实剧集",
+                parentIndexNumber = 1,
+                indexNumber = 1,
+                seekThumbnails = listOf(
+                    SeekThumbnail(
+                        positionMs = 60_000L,
+                        imageUrl = "http://emby.test/Items/resume-1/Images/Chapter/1?tag=chapter-1&MaxWidth=640&MaxHeight=360&Quality=85",
+                    ),
+                ),
             ),
         ).getOrThrow()
 
@@ -218,9 +230,82 @@ class EmbyRepositoryDashboardTest {
         assertEquals("media-source", source.details.mediaSourceId)
         assertEquals("MKV", source.details.container)
         assertEquals("Direct Play · MKV · HEVC", source.details.playbackSummaryLabel)
-        assertEquals("2160p · HDR10", source.details.qualityLabel)
+        assertEquals("2160p · HDR10 · 4.0 Mbps", source.details.qualityLabel)
+        assertEquals("真实剧集 · S01E01", source.contextLabel)
         assertEquals("EAC3 5.1", source.details.audioLabel)
-        assertEquals("简体中文", source.details.subtitleLabel)
+        assertEquals("Chinese (Simplified) · SRT · External", source.details.subtitleLabel)
+        assertEquals(
+            "http://emby.test/Videos/resume-1/media-source/Subtitles/2/Stream.srt?api_key=token-value",
+            source.details.subtitleTracks.single().externalUrl,
+        )
+        assertEquals("http://emby.test/Items/resume-1/Images/Thumb", source.previewThumbnailUrl)
+        assertEquals(
+            "http://emby.test/Items/resume-1/Images/Chapter/1?tag=chapter-1&MaxWidth=640&MaxHeight=360&Quality=85",
+            source.previewThumbnailFor(75_000L),
+        )
+    }
+
+    @Test
+    fun createPlaybackSourceWithDetailsBuildsSortedEpisodeQueueFromEmbyContext() = runTest(dispatcher) {
+        api.episodes = listOf(
+            episodeFromSeries(id = "episode-3", indexNumber = 3),
+            episodeFromSeries(id = "episode-1", indexNumber = 1),
+            episodeFromSeries(id = "episode-2", indexNumber = 2),
+        )
+
+        val source = repository.createPlaybackSourceWithDetails(
+            session = session,
+            deviceId = "device-1",
+            item = MediaItemSummary(
+                id = "episode-2",
+                name = "第 2 集",
+                type = "Episode",
+                overview = null,
+                imageUrl = null,
+                parentId = "season-1",
+                seriesId = "series-1",
+            ),
+        ).getOrThrow()
+
+        assertEquals("season-1", api.episodeRequests.single().seasonId)
+        assertEquals("series-1", api.episodeRequests.single().seriesId)
+        assertEquals("episode-1", source.queue?.previous?.id)
+        assertEquals("episode-2", source.queue?.current?.id)
+        assertEquals("episode-3", source.queue?.next?.id)
+        assertEquals(0, api.nextUpRequests.size)
+    }
+
+    @Test
+    fun createPlaybackSourceWithDetailsUsesNextUpWhenCurrentEpisodeIsLastInSeason() = runTest(dispatcher) {
+        api.episodes = listOf(
+            episodeFromSeries(id = "episode-1", indexNumber = 1),
+            episodeFromSeries(id = "episode-2", indexNumber = 2),
+        )
+        api.nextUpItems = listOf(
+            episodeFromSeries(id = "episode-3", indexNumber = 1).copy(
+                parentId = "season-2",
+                parentIndexNumber = 2,
+            ),
+        )
+
+        val source = repository.createPlaybackSourceWithDetails(
+            session = session,
+            deviceId = "device-1",
+            item = MediaItemSummary(
+                id = "episode-2",
+                name = "第 2 集",
+                type = "Episode",
+                overview = null,
+                imageUrl = null,
+                parentId = "season-1",
+                seriesId = "series-1",
+            ),
+        ).getOrThrow()
+
+        assertEquals("series-1", api.nextUpRequests.single().seriesId)
+        assertEquals("episode-1", source.queue?.previous?.id)
+        assertEquals("episode-2", source.queue?.current?.id)
+        assertEquals("episode-3", source.queue?.next?.id)
     }
 
     private fun episodeFromSeries(id: String, indexNumber: Int): EmbyItemDto =
@@ -264,6 +349,20 @@ private data class LatestItemsRequest(
     val limit: Int,
 )
 
+private data class DashboardEpisodesRequest(
+    val seriesId: String,
+    val userId: String,
+    val seasonId: String,
+    val fields: String,
+)
+
+private data class NextUpRequest(
+    val userId: String,
+    val fields: String,
+    val limit: Int,
+    val seriesId: String?,
+)
+
 private class FakeEmbyApi : EmbyApi {
     var views: List<EmbyItemDto> = listOf(
         EmbyItemDto(
@@ -278,6 +377,10 @@ private class FakeEmbyApi : EmbyApi {
     )
     val itemsByParentRequests = mutableListOf<ItemsByParentRequest>()
     val latestRequests = mutableListOf<LatestItemsRequest>()
+    val episodeRequests = mutableListOf<DashboardEpisodesRequest>()
+    val nextUpRequests = mutableListOf<NextUpRequest>()
+    var episodes: List<EmbyItemDto> = emptyList()
+    var nextUpItems: List<EmbyItemDto> = emptyList()
     var itemsByParentHandler: (ItemsByParentRequest) -> EmbyItemsResponse = { request ->
         if (request.limit == 0) {
             EmbyItemsResponse(totalRecordCount = 42)
@@ -433,7 +536,15 @@ private class FakeEmbyApi : EmbyApi {
         fields: String,
         limit: Int,
         seriesId: String?,
-    ): EmbyItemsResponse = EmbyItemsResponse()
+    ): EmbyItemsResponse {
+        nextUpRequests += NextUpRequest(
+            userId = userId,
+            fields = fields,
+            limit = limit,
+            seriesId = seriesId,
+        )
+        return EmbyItemsResponse(items = nextUpItems, totalRecordCount = nextUpItems.size)
+    }
 
     override suspend fun getGenres(
         authorization: String,
@@ -481,7 +592,15 @@ private class FakeEmbyApi : EmbyApi {
         userId: String,
         seasonId: String,
         fields: String,
-    ): EmbyItemsResponse = error("Not used")
+    ): EmbyItemsResponse {
+        episodeRequests += DashboardEpisodesRequest(
+            seriesId = seriesId,
+            userId = userId,
+            seasonId = seasonId,
+            fields = fields,
+        )
+        return EmbyItemsResponse(items = episodes, totalRecordCount = episodes.size)
+    }
 
     override suspend fun getPlaybackInfo(
         authorization: String,
@@ -522,13 +641,15 @@ private class FakeEmbyApi : EmbyApi {
                         index = 2,
                         type = "Subtitle",
                         codec = "srt",
-                        displayTitle = "简体中文",
+                        displayTitle = null,
                         language = "chi",
                         channels = null,
                         width = null,
                         height = null,
                         videoRange = null,
                         isDefault = true,
+                        isExternal = true,
+                        deliveryUrl = "/Videos/resume-1/media-source/Subtitles/2/Stream.srt",
                     ),
                 ),
             ),

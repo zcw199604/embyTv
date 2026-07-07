@@ -26,6 +26,7 @@ data class MediaItemSummary(
     val played: Boolean = false,
     val playCount: Int? = null,
     val playlistItemId: String? = null,
+    val seekThumbnails: List<SeekThumbnail> = emptyList(),
 )
 
 enum class DiscoveryKind {
@@ -116,6 +117,8 @@ data class EmbyMediaDetail(
     val communityRating: Double?,
     val officialRating: String?,
     val premiereDate: String?,
+    val criticRating: Double? = null,
+    val providerIds: Map<String, String> = emptyMap(),
     val seasons: List<EmbySeasonSummary> = emptyList(),
 )
 

@@ -21,7 +21,12 @@
 ```powershell
 .\gradlew.bat :app:assembleDebug
 .\gradlew.bat :app:testDebugUnitTest
+.\scripts\player-runtime-preflight.ps1
+.\scripts\player-runtime-preflight.ps1 -Install -Launch -CaptureLogcat
+.\scripts\player-runtime-preflight.ps1 -Install -Launch -CaptureLogcat -LogcatSeconds 90 -RequirePlaybackReports
 ```
+
+连接设备后，预检脚本会优先按 `com.embytv` 进程采集 logcat，并扫描启动崩溃、ANR、Media3/ExoPlayer 关键错误；如需只保留日志不阻断，可追加 `-AllowLogcatIssues`。真实 Emby 播放验收时可追加 `-RequirePlaybackReports`，脚本会检查 `EmbyTvPlaybackReport` 中是否出现 Started、Progress、Stopped 的成功上报诊断。
 
 ## 目录概览
 
